@@ -34,7 +34,9 @@ JUDGE_SYSTEM = (
     '- "reference": a correct Python solution defining the function. Imports only from math, itertools, '
     "collections, functools, string, re, heapq, bisect. No prints, no input(), no file or network access. "
     "It must pass every test and each test must run in well under 100 ms.\n"
-    "The function must be pure and deterministic. expected must be exactly what the reference returns."
+    "The function must be pure and deterministic. expected must be exactly what the reference returns.\n"
+    "Keep it arena-sized: the reference solution must fit in 40 lines, a strong programmer should solve it in "
+    "under a minute, tests use small inputs, and the statement describes ONE task without stacking many rules."
 )
 
 
@@ -76,9 +78,11 @@ def _user_prompt(statement: str, level: int, previous: Challenge | None, error: 
         parts.append(
             f"The previous variation (level {previous.level}) was:\n"
             f"title: {previous.title}\nsignature: {previous.signature}\nstatement: {previous.statement}\n\n"
-            f"Level {level}: create a STRICTLY HARDER variation on the same theme (tighter constraints, a "
-            "generalization, bigger inputs, trickier edge cases). A different function name or an extended "
-            "signature is fine. Raise the difficulty label when appropriate."
+            f"Level {level}: create a STRICTLY HARDER variation on the same theme by adding exactly ONE new twist "
+            "(a tighter constraint, a generalization or a trickier edge case). Do not carry over every rule of the "
+            "previous levels: replace the old twist with the new one so the task stays arena-sized. A different "
+            "function name or signature is fine. Raise the difficulty label when appropriate; if the previous "
+            "level was already hard, produce a DIFFERENT hard task on the same theme, not a bigger one."
         )
     if error:
         parts.append(f"Your previous answer was rejected: {error}\nReturn a corrected JSON object only.")
@@ -96,6 +100,7 @@ class Judge:
         timeout_s: float = 120.0,
         max_tries: int = 3,
         extra: dict[str, Any] | None = None,
+        extra_next_levels: dict[str, Any] | None = None,
     ) -> None:
         self.provider = provider
         self.model = model
@@ -104,12 +109,14 @@ class Judge:
         self.timeout_s = timeout_s
         self.max_tries = max_tries
         self.extra = extra
+        self.extra_next_levels = extra_next_levels if extra_next_levels is not None else extra
 
-    async def _ask(self, user: str) -> str:
+    async def _ask(self, user: str, level: int) -> str:
         buf: list[str] = []
+        extra = self.extra if level <= 1 else self.extra_next_levels
         async with asyncio.timeout(self.timeout_s):
             async for tok in self.provider.stream_completion(
-                system=JUDGE_SYSTEM, user=user, model=self.model, max_tokens=self.max_tokens, extra=self.extra
+                system=JUDGE_SYSTEM, user=user, model=self.model, max_tokens=self.max_tokens, extra=extra
             ):
                 buf.append(tok)
         return "".join(buf)
@@ -142,7 +149,7 @@ class Judge:
         error: str | None = None
         for attempt in range(1, self.max_tries + 1):
             try:
-                text = await self._ask(_user_prompt(statement, level, previous, error))
+                text = await self._ask(_user_prompt(statement, level, previous, error), level)
                 data = _extract_json(text)
                 challenge = await self._validate(data, level)
             except (JudgeError, ProviderError, TimeoutError) as e:

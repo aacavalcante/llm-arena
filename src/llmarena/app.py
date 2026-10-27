@@ -35,9 +35,12 @@ def build_judge(settings: Settings, registry: ProviderRegistry, sandbox: Subproc
     if not model:
         return None
     if provider_name == "anthropic":
+        # Nível 1 (o problema do usuário) com mais cuidado; níveis seguintes mais rápidos, gerados em segundo plano
         extra = {"output_config": {"effort": "high"}}
+        extra_next = {"output_config": {"effort": "medium"}}
     else:
         extra = {"reasoning": {"effort": "medium", "exclude": True}}
+        extra_next = {"reasoning": {"effort": "low", "exclude": True}}
     return Judge(
         provider=registry.get(provider_name),
         model=model,
@@ -46,6 +49,7 @@ def build_judge(settings: Settings, registry: ProviderRegistry, sandbox: Subproc
         timeout_s=settings.judge_timeout_s,
         max_tries=settings.judge_max_tries,
         extra=extra,
+        extra_next_levels=extra_next,
     )
 
 

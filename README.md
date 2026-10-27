@@ -13,7 +13,7 @@ token, o enunciado e o resultado dos testes.
 | Dano | fácil 10, médio 20, difícil 35 |
 | Golpe errado | abre **contra-ataque**: o próximo golpe válido do oponente no mesmo desafio causa +50 % |
 | Erro de API (429/5xx/timeout) | golpe perdido, sem abrir contra-ataque |
-| Custo | `max_tokens` 1500, até 4 tentativas por desafio, 12 golpes por round por lutador |
+| Custo | `max_tokens` 2500, até 4 tentativas por desafio, 12 golpes por round por lutador |
 
 ## Modo "problema personalizado" (vantagem)
 

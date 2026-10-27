@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     max_attempts_per_challenge: int = 4
     max_golpes_per_round: int = 12
 
-    llm_max_tokens: int = 1500
+    llm_max_tokens: int = 2500
     llm_timeout_s: float = 60.0
     first_token_timeout_s: float = 20.0
 
