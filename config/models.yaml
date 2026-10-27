@@ -1,0 +1,20 @@
+# Modelos selecionáveis na tela de setup. Só aparecem os provedores cuja chave estiver no .env.
+providers:
+  anthropic:
+    display_name: Anthropic
+    models:
+      - { id: claude-haiku-5-5, display_name: "Claude Haiku 5.5" }
+      - { id: claude-sonnet-5-5, display_name: "Claude Sonnet 5.5" }
+      - { id: claude-opus-5-5, display_name: "Claude Opus 5.5" }
+      - { id: claude-fable-5-1, display_name: "Claude Fable 5.1" }
+  openrouter:
+    display_name: OpenRouter
+    models:
+      - { id: google/gemini-2.5-flash, display_name: "Gemini 2.5 Flash" }
+      - { id: google/gemini-2.5-pro, display_name: "Gemini 2.5 Pro" }
+      - { id: openai/gpt-4.1-mini, display_name: "GPT-4.1 mini" }
+      - { id: openai/gpt-4.1, display_name: "GPT-4.1" }
+      - { id: deepseek/deepseek-chat-v3-0324, display_name: "DeepSeek V3" }
+      - { id: meta-llama/llama-3.3-70b-instruct, display_name: "Llama 3.3 70B" }
+      - { id: mistralai/mistral-small-3.2-24b-instruct, display_name: "Mistral Small 3.2" }
+      - { id: qwen/qwen-2.5-coder-32b-instruct, display_name: "Qwen 2.5 Coder 32B" }

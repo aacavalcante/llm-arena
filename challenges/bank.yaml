@@ -1,0 +1,810 @@
+# Banco de desafios da arena. `reference` nunca é enviado aos modelos; serve para validar os testes.
+challenges:
+  # ------------------------------------------------------------------ fácil (10 de dano)
+  - id: fibonacci
+    title: Fibonacci
+    difficulty: easy
+    function: fibonacci
+    signature: "def fibonacci(n: int) -> int"
+    statement: "Return the n-th Fibonacci number with fibonacci(0) = 0 and fibonacci(1) = 1. 0 <= n <= 90."
+    tests:
+      - {args: [0], expected: 0}
+      - {args: [1], expected: 1}
+      - {args: [10], expected: 55}
+      - {args: [90], expected: 2880067194370816120}
+    reference: |
+      def fibonacci(n):
+          a, b = 0, 1
+          for _ in range(n):
+              a, b = b, a + b
+          return a
+
+  - id: reverse_words
+    title: Reverse words
+    difficulty: easy
+    function: reverse_words
+    signature: "def reverse_words(s: str) -> str"
+    statement: "Return the words of s in reverse order, separated by single spaces. Words are separated by one or more spaces; ignore leading/trailing spaces."
+    tests:
+      - {args: ["the sky is blue"], expected: "blue is sky the"}
+      - {args: ["  hello   world  "], expected: "world hello"}
+      - {args: ["a"], expected: "a"}
+      - {args: [""], expected: ""}
+    reference: |
+      def reverse_words(s):
+          return " ".join(reversed(s.split()))
+
+  - id: is_palindrome
+    title: Alphanumeric palindrome
+    difficulty: easy
+    function: is_palindrome
+    signature: "def is_palindrome(s: str) -> bool"
+    statement: "Return True if s is a palindrome considering only alphanumeric characters and ignoring case."
+    tests:
+      - {args: ["A man, a plan, a canal: Panama"], expected: true}
+      - {args: ["race a car"], expected: false}
+      - {args: [""], expected: true}
+      - {args: ["0P"], expected: false}
+    reference: |
+      def is_palindrome(s):
+          t = [c.lower() for c in s if c.isalnum()]
+          return t == t[::-1]
+
+  - id: count_vowels
+    title: Count vowels
+    difficulty: easy
+    function: count_vowels
+    signature: "def count_vowels(s: str) -> int"
+    statement: "Return how many characters of s are vowels (a, e, i, o, u), case-insensitive."
+    tests:
+      - {args: ["hello world"], expected: 3}
+      - {args: ["AEIOU xyz"], expected: 5}
+      - {args: [""], expected: 0}
+      - {args: ["rhythm"], expected: 0}
+    reference: |
+      def count_vowels(s):
+          return sum(1 for c in s.lower() if c in "aeiou")
+
+  - id: fizzbuzz_list
+    title: FizzBuzz list
+    difficulty: easy
+    function: fizzbuzz
+    signature: "def fizzbuzz(n: int) -> list[str]"
+    statement: "Return the FizzBuzz sequence from 1 to n as strings: multiples of 3 -> 'Fizz', of 5 -> 'Buzz', of both -> 'FizzBuzz', otherwise the number."
+    tests:
+      - {args: [5], expected: ["1", "2", "Fizz", "4", "Buzz"]}
+      - {args: [15], expected: ["1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz", "11", "Fizz", "13", "14", "FizzBuzz"]}
+      - {args: [0], expected: []}
+    reference: |
+      def fizzbuzz(n):
+          out = []
+          for i in range(1, n + 1):
+              s = ("Fizz" if i % 3 == 0 else "") + ("Buzz" if i % 5 == 0 else "")
+              out.append(s or str(i))
+          return out
+
+  - id: second_largest
+    title: Second largest
+    difficulty: easy
+    function: second_largest
+    signature: "def second_largest(nums: list[int]) -> int | None"
+    statement: "Return the second largest distinct value in nums, or None if it does not exist."
+    tests:
+      - {args: [[3, 1, 4, 1, 5, 9, 2, 6]], expected: 6}
+      - {args: [[5, 5, 5]], expected: null}
+      - {args: [[2, 1]], expected: 1}
+      - {args: [[]], expected: null}
+    reference: |
+      def second_largest(nums):
+          s = sorted(set(nums))
+          return s[-2] if len(s) >= 2 else None
+
+  - id: char_frequency
+    title: Character frequency
+    difficulty: easy
+    function: char_frequency
+    signature: "def char_frequency(s: str) -> dict[str, int]"
+    statement: "Return a dict mapping each character of s to the number of times it appears."
+    tests:
+      - {args: ["banana"], expected: {"b": 1, "a": 3, "n": 2}}
+      - {args: [""], expected: {}}
+      - {args: ["aA a"], expected: {"a": 2, "A": 1, " ": 1}}
+    reference: |
+      from collections import Counter
+      def char_frequency(s):
+          return dict(Counter(s))
+
+  - id: sum_digits
+    title: Sum of digits
+    difficulty: easy
+    function: sum_digits
+    signature: "def sum_digits(n: int) -> int"
+    statement: "Return the sum of the decimal digits of the absolute value of n."
+    tests:
+      - {args: [1234], expected: 10}
+      - {args: [0], expected: 0}
+      - {args: [-907], expected: 16}
+      - {args: [99999999999], expected: 99}
+    reference: |
+      def sum_digits(n):
+          return sum(int(d) for d in str(abs(n)))
+
+  - id: flatten_once
+    title: Flatten one level
+    difficulty: easy
+    function: flatten
+    signature: "def flatten(items: list) -> list"
+    statement: "Flatten a list of lists by exactly one level, keeping order. Non-list elements are kept as-is."
+    tests:
+      - {args: [[[1, 2], [3], [], [4, 5]]], expected: [1, 2, 3, 4, 5]}
+      - {args: [[1, [2, 3], 4]], expected: [1, 2, 3, 4]}
+      - {args: [[]], expected: []}
+      - {args: [[[[1]], [2]]], expected: [[1], 2]}
+    reference: |
+      def flatten(items):
+          out = []
+          for x in items:
+              if isinstance(x, list):
+                  out.extend(x)
+              else:
+                  out.append(x)
+          return out
+
+  - id: is_prime
+    title: Prime check
+    difficulty: easy
+    function: is_prime
+    signature: "def is_prime(n: int) -> bool"
+    statement: "Return True if n is a prime number. n can be up to 10**9."
+    tests:
+      - {args: [2], expected: true}
+      - {args: [1], expected: false}
+      - {args: [91], expected: false}
+      - {args: [1000000007], expected: true}
+      - {args: [0], expected: false}
+    reference: |
+      def is_prime(n):
+          if n < 2:
+              return False
+          if n % 2 == 0:
+              return n == 2
+          i = 3
+          while i * i <= n:
+              if n % i == 0:
+                  return False
+              i += 2
+          return True
+
+  - id: capitalize_words
+    title: Title case
+    difficulty: easy
+    function: title_case
+    signature: "def title_case(s: str) -> str"
+    statement: "Capitalize the first letter of every word and lowercase the rest. Words are separated by single spaces; keep the spacing as is."
+    tests:
+      - {args: ["hello wORLD"], expected: "Hello World"}
+      - {args: ["a b c"], expected: "A B C"}
+      - {args: [""], expected: ""}
+      - {args: ["ALREADY Done"], expected: "Already Done"}
+    reference: |
+      def title_case(s):
+          return " ".join(w[:1].upper() + w[1:].lower() for w in s.split(" "))
+
+  - id: running_sum
+    title: Running sum
+    difficulty: easy
+    function: running_sum
+    signature: "def running_sum(nums: list[int]) -> list[int]"
+    statement: "Return a list where element i is the sum of nums[0..i]."
+    tests:
+      - {args: [[1, 2, 3, 4]], expected: [1, 3, 6, 10]}
+      - {args: [[]], expected: []}
+      - {args: [[-1, 1, -1]], expected: [-1, 0, -1]}
+    reference: |
+      def running_sum(nums):
+          out, s = [], 0
+          for x in nums:
+              s += x
+              out.append(s)
+          return out
+
+  - id: binary_to_int
+    title: Binary string to int
+    difficulty: easy
+    function: binary_to_int
+    signature: "def binary_to_int(s: str) -> int"
+    statement: "Convert a string of '0' and '1' characters to its integer value without using int(s, 2)."
+    tests:
+      - {args: ["101"], expected: 5}
+      - {args: ["0"], expected: 0}
+      - {args: ["11111111"], expected: 255}
+      - {args: ["1000000000000000000000000000000000"], expected: 8589934592}
+    reference: |
+      def binary_to_int(s):
+          v = 0
+          for c in s:
+              v = v * 2 + (1 if c == "1" else 0)
+          return v
+
+  # ------------------------------------------------------------------ médio (20 de dano)
+  - id: group_anagrams
+    title: Group anagrams
+    difficulty: medium
+    function: group_anagrams
+    signature: "def group_anagrams(words: list[str]) -> list[list[str]]"
+    statement: "Group words that are anagrams of each other. Sort each group alphabetically and sort the groups by their first word."
+    tests:
+      - {args: [["eat", "tea", "tan", "ate", "nat", "bat"]], expected: [["ate", "eat", "tea"], ["bat"], ["nat", "tan"]]}
+      - {args: [[]], expected: []}
+      - {args: [["a"]], expected: [["a"]]}
+      - {args: [["ab", "ba", "abc"]], expected: [["ab", "ba"], ["abc"]]}
+    reference: |
+      from collections import defaultdict
+      def group_anagrams(words):
+          g = defaultdict(list)
+          for w in words:
+              g["".join(sorted(w))].append(w)
+          return sorted((sorted(v) for v in g.values()), key=lambda x: x[0])
+
+  - id: two_sum
+    title: Two sum
+    difficulty: medium
+    function: two_sum
+    signature: "def two_sum(nums: list[int], target: int) -> list[int]"
+    statement: "Return the indices [i, j] with i < j such that nums[i] + nums[j] == target. Exactly one solution exists."
+    tests:
+      - {args: [[2, 7, 11, 15], 9], expected: [0, 1]}
+      - {args: [[3, 2, 4], 6], expected: [1, 2]}
+      - {args: [[3, 3], 6], expected: [0, 1]}
+      - {args: [[-1, 5, 10, -4], 6], expected: [2, 3]}
+    reference: |
+      def two_sum(nums, target):
+          seen = {}
+          for j, x in enumerate(nums):
+              if target - x in seen:
+                  return [seen[target - x], j]
+              seen[x] = j
+          return []
+
+  - id: merge_intervals
+    title: Merge intervals
+    difficulty: medium
+    function: merge_intervals
+    signature: "def merge_intervals(intervals: list[list[int]]) -> list[list[int]]"
+    statement: "Merge all overlapping or touching intervals [start, end] and return the result sorted by start."
+    tests:
+      - {args: [[[1, 3], [2, 6], [8, 10], [15, 18]]], expected: [[1, 6], [8, 10], [15, 18]]}
+      - {args: [[[1, 4], [4, 5]]], expected: [[1, 5]]}
+      - {args: [[]], expected: []}
+      - {args: [[[5, 7], [1, 2], [2, 3]]], expected: [[1, 3], [5, 7]]}
+    reference: |
+      def merge_intervals(intervals):
+          out = []
+          for s, e in sorted(intervals):
+              if out and s <= out[-1][1]:
+                  out[-1][1] = max(out[-1][1], e)
+              else:
+                  out.append([s, e])
+          return out
+
+  - id: valid_parentheses
+    title: Valid brackets
+    difficulty: medium
+    function: valid_brackets
+    signature: "def valid_brackets(s: str) -> bool"
+    statement: "Return True if every bracket in s ( (), [], {} ) is closed by the same type in the correct order. Other characters are ignored."
+    tests:
+      - {args: ["()[]{}"], expected: true}
+      - {args: ["([)]"], expected: false}
+      - {args: ["{[]}"], expected: true}
+      - {args: ["(("], expected: false}
+      - {args: ["a(b)c"], expected: true}
+    reference: |
+      def valid_brackets(s):
+          pairs = {")": "(", "]": "[", "}": "{"}
+          st = []
+          for c in s:
+              if c in "([{":
+                  st.append(c)
+              elif c in pairs:
+                  if not st or st.pop() != pairs[c]:
+                      return False
+          return not st
+
+  - id: rotate_matrix
+    title: Rotate matrix
+    difficulty: medium
+    function: rotate
+    signature: "def rotate(matrix: list[list[int]]) -> list[list[int]]"
+    statement: "Return the n x n matrix rotated 90 degrees clockwise. Do not modify the input."
+    tests:
+      - {args: [[[1, 2], [3, 4]]], expected: [[3, 1], [4, 2]]}
+      - {args: [[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], expected: [[7, 4, 1], [8, 5, 2], [9, 6, 3]]}
+      - {args: [[[1]]], expected: [[1]]}
+      - {args: [[]], expected: []}
+    reference: |
+      def rotate(matrix):
+          return [list(row) for row in zip(*matrix[::-1])]
+
+  - id: longest_common_prefix
+    title: Longest common prefix
+    difficulty: medium
+    function: longest_common_prefix
+    signature: "def longest_common_prefix(words: list[str]) -> str"
+    statement: "Return the longest string that is a prefix of every word in the list. Return '' if there is none or the list is empty."
+    tests:
+      - {args: [["flower", "flow", "flight"]], expected: "fl"}
+      - {args: [["dog", "racecar", "car"]], expected: ""}
+      - {args: [[]], expected: ""}
+      - {args: [["same", "same"]], expected: "same"}
+    reference: |
+      def longest_common_prefix(words):
+          if not words:
+              return ""
+          p = words[0]
+          for w in words[1:]:
+              while not w.startswith(p):
+                  p = p[:-1]
+          return p
+
+  - id: top_k_frequent
+    title: Top k frequent
+    difficulty: medium
+    function: top_k_frequent
+    signature: "def top_k_frequent(nums: list[int], k: int) -> list[int]"
+    statement: "Return the k most frequent values, ordered by decreasing frequency; break ties by smaller value first."
+    tests:
+      - {args: [[1, 1, 1, 2, 2, 3], 2], expected: [1, 2]}
+      - {args: [[1], 1], expected: [1]}
+      - {args: [[4, 4, 5, 5, 6], 2], expected: [4, 5]}
+      - {args: [[3, 3, 1, 1, 2], 3], expected: [1, 3, 2]}
+    reference: |
+      from collections import Counter
+      def top_k_frequent(nums, k):
+          c = Counter(nums)
+          return [v for v, _ in sorted(c.items(), key=lambda kv: (-kv[1], kv[0]))[:k]]
+
+  - id: binary_search
+    title: Binary search
+    difficulty: medium
+    function: binary_search
+    signature: "def binary_search(nums: list[int], target: int) -> int"
+    statement: "nums is sorted ascending with no duplicates. Return the index of target, or -1 if absent. Must be O(log n)."
+    tests:
+      - {args: [[-1, 0, 3, 5, 9, 12], 9], expected: 4}
+      - {args: [[-1, 0, 3, 5, 9, 12], 2], expected: -1}
+      - {args: [[], 1], expected: -1}
+      - {args: [[5], 5], expected: 0}
+    reference: |
+      def binary_search(nums, target):
+          lo, hi = 0, len(nums) - 1
+          while lo <= hi:
+              mid = (lo + hi) // 2
+              if nums[mid] == target:
+                  return mid
+              if nums[mid] < target:
+                  lo = mid + 1
+              else:
+                  hi = mid - 1
+          return -1
+
+  - id: roman_to_int
+    title: Roman numerals to int
+    difficulty: medium
+    function: roman_to_int
+    signature: "def roman_to_int(s: str) -> int"
+    statement: "Convert a valid Roman numeral (I, V, X, L, C, D, M with subtractive notation) to an integer."
+    tests:
+      - {args: ["III"], expected: 3}
+      - {args: ["LVIII"], expected: 58}
+      - {args: ["MCMXCIV"], expected: 1994}
+      - {args: ["IV"], expected: 4}
+    reference: |
+      def roman_to_int(s):
+          v = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+          total = 0
+          for i, c in enumerate(s):
+              if i + 1 < len(s) and v[c] < v[s[i + 1]]:
+                  total -= v[c]
+              else:
+                  total += v[c]
+          return total
+
+  - id: max_subarray
+    title: Maximum subarray sum
+    difficulty: medium
+    function: max_subarray
+    signature: "def max_subarray(nums: list[int]) -> int"
+    statement: "Return the largest sum of any non-empty contiguous subarray of nums."
+    tests:
+      - {args: [[-2, 1, -3, 4, -1, 2, 1, -5, 4]], expected: 6}
+      - {args: [[1]], expected: 1}
+      - {args: [[-3, -1, -2]], expected: -1}
+      - {args: [[5, 4, -1, 7, 8]], expected: 23}
+    reference: |
+      def max_subarray(nums):
+          best = cur = nums[0]
+          for x in nums[1:]:
+              cur = max(x, cur + x)
+              best = max(best, cur)
+          return best
+
+  - id: move_zeros
+    title: Move zeros
+    difficulty: medium
+    function: move_zeros
+    signature: "def move_zeros(nums: list[int]) -> list[int]"
+    statement: "Return a new list with all zeros moved to the end, keeping the relative order of the other elements."
+    tests:
+      - {args: [[0, 1, 0, 3, 12]], expected: [1, 3, 12, 0, 0]}
+      - {args: [[0]], expected: [0]}
+      - {args: [[]], expected: []}
+      - {args: [[1, 2, 3]], expected: [1, 2, 3]}
+    reference: |
+      def move_zeros(nums):
+          nz = [x for x in nums if x != 0]
+          return nz + [0] * (len(nums) - len(nz))
+
+  - id: word_count_top
+    title: Most common word
+    difficulty: medium
+    function: most_common_word
+    signature: "def most_common_word(text: str) -> str"
+    statement: "Return the most frequent word in text, case-insensitive, ignoring punctuation (anything that is not a letter or digit splits words). Ties: alphabetically first."
+    tests:
+      - {args: ["The cat and the hat. The end!"], expected: "the"}
+      - {args: ["b a b a"], expected: "a"}
+      - {args: ["Hello, hello; HELLO world"], expected: "hello"}
+    reference: |
+      import re
+      from collections import Counter
+      def most_common_word(text):
+          words = re.findall(r"[a-z0-9]+", text.lower())
+          c = Counter(words)
+          return sorted(c.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+
+  - id: spiral_order
+    title: Spiral order
+    difficulty: medium
+    function: spiral_order
+    signature: "def spiral_order(matrix: list[list[int]]) -> list[int]"
+    statement: "Return all elements of the matrix in clockwise spiral order starting from the top-left."
+    tests:
+      - {args: [[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], expected: [1, 2, 3, 6, 9, 8, 7, 4, 5]}
+      - {args: [[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]], expected: [1, 2, 3, 4, 8, 12, 11, 10, 9, 5, 6, 7]}
+      - {args: [[[1]]], expected: [1]}
+      - {args: [[]], expected: []}
+    reference: |
+      def spiral_order(matrix):
+          out = []
+          m = [list(r) for r in matrix]
+          while m:
+              out.extend(m.pop(0))
+              m = [list(r) for r in zip(*m)][::-1]
+          return out
+
+  - id: missing_number
+    title: Missing number
+    difficulty: medium
+    function: missing_number
+    signature: "def missing_number(nums: list[int]) -> int"
+    statement: "nums contains n distinct integers from the range [0, n]. Return the one number of the range that is missing."
+    tests:
+      - {args: [[3, 0, 1]], expected: 2}
+      - {args: [[0, 1]], expected: 2}
+      - {args: [[9, 6, 4, 2, 3, 5, 7, 0, 1]], expected: 8}
+      - {args: [[0]], expected: 1}
+    reference: |
+      def missing_number(nums):
+          n = len(nums)
+          return n * (n + 1) // 2 - sum(nums)
+
+  # ------------------------------------------------------------------ difícil (35 de dano)
+  - id: min_window_substring
+    title: Minimum window substring
+    difficulty: hard
+    function: min_window
+    signature: "def min_window(s: str, t: str) -> str"
+    statement: "Return the smallest substring of s that contains every character of t (with multiplicity). Return '' if none exists. If several, return the leftmost."
+    tests:
+      - {args: ["ADOBECODEBANC", "ABC"], expected: "BANC"}
+      - {args: ["a", "aa"], expected: ""}
+      - {args: ["aa", "aa"], expected: "aa"}
+      - {args: ["abcabdebac", "cda"], expected: "cabd"}
+    reference: |
+      from collections import Counter
+      def min_window(s, t):
+          need = Counter(t)
+          missing = len(t)
+          l = 0
+          best = (float("inf"), 0, 0)
+          for r, ch in enumerate(s, 1):
+              if need[ch] > 0:
+                  missing -= 1
+              need[ch] -= 1
+              if missing == 0:
+                  while need[s[l]] < 0:
+                      need[s[l]] += 1
+                      l += 1
+                  if r - l < best[0]:
+                      best = (r - l, l, r)
+                  need[s[l]] += 1
+                  missing += 1
+                  l += 1
+          return "" if best[0] == float("inf") else s[best[1]:best[2]]
+
+  - id: longest_increasing_subsequence
+    title: Longest increasing subsequence
+    difficulty: hard
+    function: lis_length
+    signature: "def lis_length(nums: list[int]) -> int"
+    statement: "Return the length of the longest strictly increasing subsequence of nums. nums can have up to 10**5 elements, so O(n log n) is expected."
+    tests:
+      - {args: [[10, 9, 2, 5, 3, 7, 101, 18]], expected: 4}
+      - {args: [[0, 1, 0, 3, 2, 3]], expected: 4}
+      - {args: [[7, 7, 7, 7]], expected: 1}
+      - {args: [[]], expected: 0}
+    reference: |
+      from bisect import bisect_left
+      def lis_length(nums):
+          tails = []
+          for x in nums:
+              i = bisect_left(tails, x)
+              if i == len(tails):
+                  tails.append(x)
+              else:
+                  tails[i] = x
+          return len(tails)
+
+  - id: lru_cache_sim
+    title: LRU cache simulation
+    difficulty: hard
+    function: lru_simulate
+    signature: "def lru_simulate(capacity: int, ops: list[list]) -> list"
+    statement: "Simulate an LRU cache. ops is a list of ['get', key] or ['put', key, value]. Return the list of results of the 'get' operations (-1 when missing). Both get and put mark the key as most recently used."
+    tests:
+      - {args: [2, [["put", 1, 1], ["put", 2, 2], ["get", 1], ["put", 3, 3], ["get", 2], ["put", 4, 4], ["get", 1], ["get", 3], ["get", 4]]], expected: [1, -1, -1, 3, 4]}
+      - {args: [1, [["put", 1, 1], ["get", 1], ["put", 2, 2], ["get", 1], ["get", 2]]], expected: [1, -1, 2]}
+      - {args: [2, [["get", 5], ["put", 5, 50], ["put", 5, 51], ["get", 5]]], expected: [-1, 51]}
+    reference: |
+      from collections import OrderedDict
+      def lru_simulate(capacity, ops):
+          cache = OrderedDict()
+          out = []
+          for op in ops:
+              if op[0] == "get":
+                  k = op[1]
+                  if k in cache:
+                      cache.move_to_end(k)
+                      out.append(cache[k])
+                  else:
+                      out.append(-1)
+              else:
+                  _, k, v = op
+                  cache[k] = v
+                  cache.move_to_end(k)
+                  if len(cache) > capacity:
+                      cache.popitem(last=False)
+          return out
+
+  - id: edit_distance
+    title: Edit distance
+    difficulty: hard
+    function: edit_distance
+    signature: "def edit_distance(a: str, b: str) -> int"
+    statement: "Return the minimum number of single-character insertions, deletions or substitutions needed to turn a into b."
+    tests:
+      - {args: ["horse", "ros"], expected: 3}
+      - {args: ["intention", "execution"], expected: 5}
+      - {args: ["", "abc"], expected: 3}
+      - {args: ["same", "same"], expected: 0}
+    reference: |
+      def edit_distance(a, b):
+          prev = list(range(len(b) + 1))
+          for i, ca in enumerate(a, 1):
+              cur = [i]
+              for j, cb in enumerate(b, 1):
+                  cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+              prev = cur
+          return prev[-1]
+
+  - id: num_islands
+    title: Number of islands
+    difficulty: hard
+    function: num_islands
+    signature: "def num_islands(grid: list[list[int]]) -> int"
+    statement: "grid contains 0 (water) and 1 (land). Return the number of islands: groups of 1s connected horizontally or vertically."
+    tests:
+      - {args: [[[1, 1, 0, 0], [1, 0, 0, 1], [0, 0, 1, 1]]], expected: 2}
+      - {args: [[[0, 0], [0, 0]]], expected: 0}
+      - {args: [[[1, 0, 1], [0, 1, 0], [1, 0, 1]]], expected: 5}
+      - {args: [[]], expected: 0}
+    reference: |
+      def num_islands(grid):
+          if not grid:
+              return 0
+          h, w = len(grid), len(grid[0])
+          seen = [[False] * w for _ in range(h)]
+          count = 0
+          for i in range(h):
+              for j in range(w):
+                  if grid[i][j] == 1 and not seen[i][j]:
+                      count += 1
+                      stack = [(i, j)]
+                      seen[i][j] = True
+                      while stack:
+                          y, x = stack.pop()
+                          for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                              ny, nx = y + dy, x + dx
+                              if 0 <= ny < h and 0 <= nx < w and grid[ny][nx] == 1 and not seen[ny][nx]:
+                                  seen[ny][nx] = True
+                                  stack.append((ny, nx))
+          return count
+
+  - id: coin_change
+    title: Coin change
+    difficulty: hard
+    function: coin_change
+    signature: "def coin_change(coins: list[int], amount: int) -> int"
+    statement: "Return the fewest coins needed to make up amount using unlimited coins of the given denominations, or -1 if impossible."
+    tests:
+      - {args: [[1, 2, 5], 11], expected: 3}
+      - {args: [[2], 3], expected: -1}
+      - {args: [[1], 0], expected: 0}
+      - {args: [[186, 419, 83, 408], 6249], expected: 20}
+    reference: |
+      def coin_change(coins, amount):
+          INF = amount + 1
+          dp = [0] + [INF] * amount
+          for a in range(1, amount + 1):
+              for c in coins:
+                  if c <= a and dp[a - c] + 1 < dp[a]:
+                      dp[a] = dp[a - c] + 1
+          return dp[amount] if dp[amount] != INF else -1
+
+  - id: topological_order
+    title: Course schedule
+    difficulty: hard
+    function: can_finish
+    signature: "def can_finish(n: int, prerequisites: list[list[int]]) -> bool"
+    statement: "There are n courses 0..n-1. Each pair [a, b] means b must be taken before a. Return True if it is possible to finish all courses (the graph has no cycle)."
+    tests:
+      - {args: [2, [[1, 0]]], expected: true}
+      - {args: [2, [[1, 0], [0, 1]]], expected: false}
+      - {args: [4, [[1, 0], [2, 1], [3, 2]]], expected: true}
+      - {args: [3, [[0, 1], [1, 2], [2, 0]]], expected: false}
+      - {args: [1, []], expected: true}
+    reference: |
+      from collections import deque
+      def can_finish(n, prerequisites):
+          adj = [[] for _ in range(n)]
+          indeg = [0] * n
+          for a, b in prerequisites:
+              adj[b].append(a)
+              indeg[a] += 1
+          q = deque(i for i in range(n) if indeg[i] == 0)
+          done = 0
+          while q:
+              u = q.popleft()
+              done += 1
+              for v in adj[u]:
+                  indeg[v] -= 1
+                  if indeg[v] == 0:
+                      q.append(v)
+          return done == n
+
+  - id: trapping_rain_water
+    title: Trapping rain water
+    difficulty: hard
+    function: trap
+    signature: "def trap(height: list[int]) -> int"
+    statement: "Given an elevation map where each bar has width 1, return how much water it can trap after raining."
+    tests:
+      - {args: [[0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]], expected: 6}
+      - {args: [[4, 2, 0, 3, 2, 5]], expected: 9}
+      - {args: [[]], expected: 0}
+      - {args: [[3, 3, 3]], expected: 0}
+    reference: |
+      def trap(height):
+          l, r = 0, len(height) - 1
+          lm = rm = water = 0
+          while l < r:
+              if height[l] < height[r]:
+                  lm = max(lm, height[l])
+                  water += lm - height[l]
+                  l += 1
+              else:
+                  rm = max(rm, height[r])
+                  water += rm - height[r]
+                  r -= 1
+          return water
+
+  - id: word_break
+    title: Word break
+    difficulty: hard
+    function: word_break
+    signature: "def word_break(s: str, words: list[str]) -> bool"
+    statement: "Return True if s can be segmented into a sequence of one or more dictionary words (words may be reused)."
+    tests:
+      - {args: ["leetcode", ["leet", "code"]], expected: true}
+      - {args: ["applepenapple", ["apple", "pen"]], expected: true}
+      - {args: ["catsandog", ["cats", "dog", "sand", "and", "cat"]], expected: false}
+      - {args: ["", ["a"]], expected: true}
+    reference: |
+      def word_break(s, words):
+          ws = set(words)
+          dp = [True] + [False] * len(s)
+          for i in range(1, len(s) + 1):
+              for j in range(i):
+                  if dp[j] and s[j:i] in ws:
+                      dp[i] = True
+                      break
+          return dp[len(s)]
+
+  - id: kth_largest
+    title: Kth largest element
+    difficulty: hard
+    function: kth_largest
+    signature: "def kth_largest(nums: list[int], k: int) -> int"
+    statement: "Return the k-th largest element of nums (1-based, duplicates count separately) without fully sorting the list; nums can have up to 10**5 elements."
+    tests:
+      - {args: [[3, 2, 1, 5, 6, 4], 2], expected: 5}
+      - {args: [[3, 2, 3, 1, 2, 4, 5, 5, 6], 4], expected: 4}
+      - {args: [[1], 1], expected: 1}
+      - {args: [[7, 7, 7, 8], 2], expected: 7}
+    reference: |
+      import heapq
+      def kth_largest(nums, k):
+          return heapq.nlargest(k, nums)[-1]
+
+  - id: evaluate_rpn
+    title: Evaluate reverse Polish notation
+    difficulty: hard
+    function: eval_rpn
+    signature: "def eval_rpn(tokens: list[str]) -> int"
+    statement: "Evaluate an expression in reverse Polish notation with integer tokens and the operators + - * /. Division truncates toward zero."
+    tests:
+      - {args: [["2", "1", "+", "3", "*"]], expected: 9}
+      - {args: [["4", "13", "5", "/", "+"]], expected: 6}
+      - {args: [["10", "6", "9", "3", "+", "-11", "*", "/", "*", "17", "+", "5", "+"]], expected: 22}
+      - {args: [["-7", "2", "/"]], expected: -3}
+    reference: |
+      def eval_rpn(tokens):
+          st = []
+          for t in tokens:
+              if t in "+-*/" and len(t) == 1:
+                  b, a = st.pop(), st.pop()
+                  if t == "+":
+                      st.append(a + b)
+                  elif t == "-":
+                      st.append(a - b)
+                  elif t == "*":
+                      st.append(a * b)
+                  else:
+                      st.append(int(a / b))
+              else:
+                  st.append(int(t))
+          return st[0]
+
+  - id: longest_palindromic_substring
+    title: Longest palindromic substring
+    difficulty: hard
+    function: longest_palindrome
+    signature: "def longest_palindrome(s: str) -> str"
+    statement: "Return the longest substring of s that is a palindrome. If several have the maximum length, return the leftmost one."
+    tests:
+      - {args: ["babad"], expected: "bab"}
+      - {args: ["cbbd"], expected: "bb"}
+      - {args: ["a"], expected: "a"}
+      - {args: ["forgeeksskeegfor"], expected: "geeksskeeg"}
+    reference: |
+      def longest_palindrome(s):
+          best = ""
+          for i in range(len(s)):
+              for l, r in ((i, i), (i, i + 1)):
+                  while l >= 0 and r < len(s) and s[l] == s[r]:
+                      l -= 1
+                      r += 1
+                  if r - l - 1 > len(best):
+                      best = s[l + 1:r]
+          return best

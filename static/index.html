@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Arena</title>
+  <link rel="stylesheet" href="/css/arena.css">
+</head>
+<body>
+<main id="app">
+  <header class="topbar">
+    <h1 class="logo">LLM Arena</h1>
+    <div class="topbar-right">
+      <span id="conn" class="chip chip-conn" data-status="connecting">conectando…</span>
+      <a href="/leaderboard.html">Ranking</a>
+    </div>
+  </header>
+
+  <!-- Tela inicial: escolha dos lutadores -->
+  <section id="setup" class="view">
+    <p class="tagline">Dois modelos, um desafio de Python por vez. Quem resolve primeiro acerta o golpe.</p>
+    <form id="setup-form" class="setup-grid" autocomplete="off">
+      <fieldset class="fighter-card side-left">
+        <legend>Lutador 1</legend>
+        <label>Provedor
+          <select id="sel-provider-left" name="provider-left"></select>
+        </label>
+        <label>Modelo
+          <select id="sel-model-left" name="model-left"></select>
+        </label>
+      </fieldset>
+      <div class="vs">VS</div>
+      <fieldset class="fighter-card side-right">
+        <legend>Lutador 2</legend>
+        <label>Provedor
+          <select id="sel-provider-right" name="provider-right"></select>
+        </label>
+        <label>Modelo
+          <select id="sel-model-right" name="model-right"></select>
+        </label>
+      </fieldset>
+      <div class="setup-actions">
+        <button type="submit" id="fight-btn" class="btn btn-big">Lutar</button>
+        <p id="setup-error" class="error" role="alert"></p>
+      </div>
+    </form>
+    <p class="rules">100 HP · melhor de 3 rounds · 90 s por round · dano fácil / médio / difícil = 10 / 20 / 35 · contra-ataque +50%</p>
+  </section>
+
+  <!-- Arena -->
+  <section id="arena" class="view hidden">
+    <div class="arena-grid">
+      <aside class="panel" id="panel-left">
+        <div class="panel-head">
+          <div class="who">
+            <div class="fighter-name" id="pname-left">Lutador 1</div>
+            <div class="fighter-model" id="pmodel-left">—</div>
+          </div>
+          <span class="chip" id="status-left" data-status="idle">aguardando</span>
+        </div>
+        <pre class="code" id="code-left" aria-live="off"><span class="caret"></span></pre>
+      </aside>
+
+      <div class="stage">
+        <canvas id="canvas" width="640" height="360" aria-label="Arena de luta"></canvas>
+      </div>
+
+      <aside class="panel" id="panel-right">
+        <div class="panel-head">
+          <div class="who">
+            <div class="fighter-name" id="pname-right">Lutador 2</div>
+            <div class="fighter-model" id="pmodel-right">—</div>
+          </div>
+          <span class="chip" id="status-right" data-status="idle">aguardando</span>
+        </div>
+        <pre class="code" id="code-right" aria-live="off"><span class="caret"></span></pre>
+      </aside>
+
+      <div class="under">
+        <div class="challenge empty" id="challenge-box">
+          <div class="challenge-head">
+            <span id="challenge-title">Nenhuma luta em andamento</span>
+            <span class="badge" id="challenge-diff"></span>
+          </div>
+          <p id="challenge-statement"></p>
+          <code id="challenge-signature"></code>
+        </div>
+        <div class="results-line">
+          <span class="result" id="result-left"></span>
+          <span class="result" id="result-right"></span>
+        </div>
+        <div class="arena-actions">
+          <button type="button" id="abort-btn" class="btn btn-small btn-danger">Abortar</button>
+          <button type="button" id="new-btn" class="btn btn-small hidden">Nova luta</button>
+          <span id="arena-msg"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { boot } from "/js/app.js";
+  boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Arena — mock</title>
+  <link rel="stylesheet" href="/css/arena.css">
+</head>
+<body>
+<!-- Página de desenvolvimento: reaproveita o DOM de /index.html e injeta uma sequência de eventos
+     roteirizada no lugar do WebSocket. Sirva a pasta static com `python3 -m http.server`. -->
+<script type="module">
+  import { boot } from "/js/app.js";
+
+  window.__mock = { phase: "boot", errors: [], events: 0, done: false };
+  window.addEventListener("error", (e) => window.__mock.errors.push(String(e.message)));
+  window.addEventListener("unhandledrejection", (e) => window.__mock.errors.push(String(e.reason)));
+
+  // Copia o <main id="app"> da página real
+  const html = await (await fetch("/index.html")).text();
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  document.body.insertBefore(doc.getElementById("app"), document.body.firstChild);
+
+  // fetch falso para /api/*
+  const realFetch = window.fetch.bind(window);
+  const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  window.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.startsWith("/api/models")) {
+      return json(200, { providers: [
+        { name: "anthropic", display_name: "Anthropic", models: [{ id: "claude-haiku-5-5", display_name: "Claude Haiku 5.5" }] },
+        { name: "openrouter", display_name: "OpenRouter", models: [{ id: "deepseek/deepseek-chat", display_name: "DeepSeek Chat" }] },
+      ] });
+    }
+    if (u.startsWith("/api/matches/current")) return (opts.method === "DELETE") ? new Response(null, { status: 204 }) : json(404, { detail: "no match" });
+    if (u.startsWith("/api/matches")) return json(201, { match_id: "m-mock" });
+    return realFetch(url, opts);
+  };
+
+  const L = { provider: "anthropic", model: "claude-haiku-5-5", display_name: "Claude Haiku 5.5" };
+  const R = { provider: "openrouter", model: "deepseek/deepseek-chat", display_name: "DeepSeek Chat" };
+  const rules = { hp: 100, rounds: 3, round_seconds: 90, damage: { easy: 10, medium: 20, hard: 35 }, counter_multiplier: 1.5 };
+  const chal = (seq, difficulty) => ({ type: "challenge", challenge: {
+    seq, id: `c${seq}`, title: ["Soma de pares", "Anagramas", "Caminho mínimo"][seq % 3], difficulty,
+    statement: "Dada uma lista de inteiros, devolva a soma dos elementos pares. A lista pode estar vazia.",
+    signature: "def solve(nums: list[int]) -> int:",
+  } });
+  const golpe = (side, seq, o) => ({ type: "golpe_result", side, seq, attempt: 1, passed: false, category: "ok", detail: "", ms: 1200,
+    damage: 0, counter: false, opens_counter: false, late: false, tests_passed: 4, tests_total: 4, difficulty: "easy", ...o });
+  const codeL = "def solve(nums: list[int]) -> int:\n    # soma apenas os pares\n    total = 0\n    for n in nums:\n        if n % 2 == 0:\n            total += n\n    return total\n";
+  const codeR = "def solve(nums):\n    return sum(n for n in nums if n % 2 == 0)\n";
+  const toks = (side, seq, code, t0, step = 60) => {
+    const out = [];
+    for (let i = 0; i < code.length; i += 4) out.push([t0 + (i / 4) * step, { type: "token", side, seq, text: code.slice(i, i + 4) }]);
+    return out;
+  };
+
+  const script = [
+    [0, { type: "state_snapshot", match: null }],
+    [200, { type: "match_start", match_id: "m-mock", left: L, right: R, rules }],
+    [400, { type: "round_start", round_no: 1, hp: { left: 100, right: 100 }, score: { left: 0, right: 0 }, remaining_ms: 90000 }],
+    [600, chal(1, "easy")],
+    [700, { type: "fighter_status", side: "left", status: "writing" }],
+    [750, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("left", 1, codeL, 800, 40),
+    ...toks("right", 1, codeR, 900, 90),
+    [2400, { type: "token", side: "left", seq: 99, text: "### TOKEN DE SEQ ERRADO ###" }],
+    [2600, { type: "fighter_status", side: "left", status: "testing" }],
+    [3300, golpe("left", 1, { passed: false, category: "wrong_answer", detail: "esperado 6, obtido 5", tests_passed: 2, opens_counter: true })],
+    [3350, { type: "fighter_status", side: "left", status: "stunned" }],
+    [3800, { type: "fighter_status", side: "right", status: "testing" }],
+    [4600, golpe("right", 1, { passed: true, damage: 15, counter: true, ms: 3400 })],
+    [4650, { type: "hp_update", left: 85, right: 100 }],
+    [4700, { type: "fighter_status", side: "right", status: "idle" }],
+    [4700, { type: "fighter_status", side: "left", status: "idle" }],
+    [5200, chal(2, "medium")],
+    [5300, { type: "fighter_status", side: "left", status: "writing" }],
+    [5300, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("left", 2, codeL, 5400, 30),
+    ...toks("right", 2, codeR, 5400, 70),
+    [6900, { type: "fighter_status", side: "left", status: "testing" }],
+    [7400, golpe("left", 2, { passed: true, damage: 20, difficulty: "medium", ms: 2100 })],
+    [7450, { type: "hp_update", left: 85, right: 80 }],
+    [7500, { type: "timer", remaining_ms: 61000 }],
+    [7700, golpe("right", 2, { passed: true, late: true, difficulty: "medium", ms: 2400 })],
+    [7800, { type: "fighter_status", side: "left", status: "idle" }],
+    [7800, { type: "fighter_status", side: "right", status: "idle" }],
+    [8200, chal(3, "hard")],
+    [8300, { type: "fighter_status", side: "left", status: "writing" }],
+    [8300, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("left", 3, codeL, 8400, 30),
+    ...toks("right", 3, codeR, 8400, 40),
+    [9700, { type: "fighter_status", side: "left", status: "testing" }],
+    [9900, golpe("left", 3, { passed: false, category: "api_error", detail: "timeout do provedor", tests_passed: 0, tests_total: 0, difficulty: "hard", opens_counter: true })],
+    [9950, { type: "fighter_status", side: "left", status: "exhausted" }],
+    [10500, "PHASE:counter"],
+    [10900, { type: "fighter_status", side: "right", status: "testing" }],
+    [11300, golpe("right", 3, { passed: true, damage: 52, counter: true, difficulty: "hard", ms: 2900 })],
+    [11350, { type: "hp_update", left: 33, right: 80 }],
+    [12800, "PHASE:midfight"],
+    [13500, { type: "fighter_status", side: "left", status: "ko" }],
+    [13500, { type: "hp_update", left: 0, right: 80 }],
+    [13600, { type: "round_end", round_no: 1, reason: "ko", winner: "right", hp: { left: 0, right: 80 }, score: { left: 0, right: 1 } }],
+    [15200, { type: "round_start", round_no: 2, hp: { left: 100, right: 100 }, score: { left: 0, right: 1 }, remaining_ms: 90000 }],
+    [15400, chal(4, "easy")],
+    [16200, { type: "timer", remaining_ms: 3000 }],
+    [16400, { type: "round_end", round_no: 2, reason: "timeout", winner: "left", hp: { left: 70, right: 60 }, score: { left: 1, right: 1 } }],
+    [17400, { type: "round_start", round_no: 3, hp: { left: 100, right: 100 }, score: { left: 1, right: 1 }, remaining_ms: 90000 }],
+    [17800, { type: "round_end", round_no: 3, reason: "ko", winner: "right", hp: { left: 0, right: 40 }, score: { left: 1, right: 2 } }],
+    [18000, { type: "match_end", match_id: "m-mock", winner: "right", score: { left: 1, right: 2 },
+      stats: { left: { hits: 1, misses: 2, avg_hit_ms: 2100 }, right: { hits: 3, misses: 0, avg_hit_ms: 2400 } } }],
+    [20200, "PHASE:final"],
+    [20400, { type: "error", message: "teste de erro não fatal", fatal: false }],
+    [20600, "PHASE:done"],
+  ];
+
+  function fakeConnect(onEvent, onStatus) {
+    onStatus("open");
+    const t0 = performance.now();
+    for (const [at, ev] of script) {
+      setTimeout(() => {
+        if (typeof ev === "string") {
+          window.__mock.phase = ev.slice(6);
+          if (ev === "PHASE:done") window.__mock.done = true;
+          return;
+        }
+        try {
+          onEvent(ev);
+          window.__mock.events += 1;
+        } catch (e) {
+          window.__mock.errors.push(`evento ${ev.type}: ${e.message}`);
+        }
+      }, at);
+    }
+    return { close() {} };
+  }
+
+  const app = await boot({ connect: fakeConnect });
+  window.__app = app;
+  window.__mock.phase = "running";
+</script>
+</body>
+</html>

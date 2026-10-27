@@ -1,0 +1,17 @@
+services:
+  arena:
+    build: .
+    container_name: llm-arena
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8080
+    # Só na própria VPS; coloque um reverse proxy com autenticação na frente antes de expor.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }

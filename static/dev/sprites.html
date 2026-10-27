@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>LLM Arena — sprites</title>
+  <style>
+    body { background: #1a1a2e; color: #ddd; font-family: monospace; margin: 16px; }
+    canvas { image-rendering: pixelated; border: 1px solid #444; }
+  </style>
+</head>
+<body>
+<!-- Folha de sprites: todos os estados/frames dos dois lutadores (página de desenvolvimento). -->
+<canvas id="c"></canvas>
+<script type="module">
+  import { createFighter } from "/js/sprites.js";
+  const states = ["idle","writing","testing","stunned","exhausted","counter_ready","attack_light","attack_medium","attack_special","hit","stumble","ko","win"];
+  const frames = 3;
+  const cw = 110, chh = 120;
+  const c = document.getElementById("c");
+  c.width = cw * frames * 2 + 10; c.height = chh * states.length + 10;
+  c.style.width = c.width * 1.5 + "px";
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  const durs = { attack_special: [0, 400, 0] };
+  states.forEach((s, row) => {
+    for (const [i, side] of ["left", "right"].entries()) {
+      for (let f = 0; f < frames; f++) {
+        const fx = createFighter(side, { reach: 60 });
+        fx.setState(s, { force: true });
+        fx.setFrame(f);
+        if (s === "attack_special" && f === 1) fx.update(300); // projétil no meio do voo
+        if (s === "counter_ready") fx.glow = true;
+        const x = 10 + (i * frames + f) * cw + 40, y = 10 + row * chh + 100;
+        ctx.fillStyle = "#222238"; ctx.fillRect(x - 40, y - 100, cw - 4, chh - 4);
+        ctx.fillStyle = "#555"; ctx.fillRect(x - 40, y, cw - 4, 2);
+        fx.draw(ctx, x, y);
+        ctx.fillStyle = "#aaa"; ctx.font = "10px monospace"; ctx.fillText(`${s} ${f}`, x - 38, y - 88);
+      }
+    }
+  });
+  window.__sheetDone = true;
+</script>
+</body>
+</html>
