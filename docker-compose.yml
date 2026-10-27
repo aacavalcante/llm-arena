@@ -7,9 +7,10 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 8080
-    # Só na própria VPS; coloque um reverse proxy com autenticação na frente antes de expor.
+    # Exposto no IP público da VPS (decisão do Alisson): qualquer pessoa com o IP pode iniciar lutas
+    # e gastar tokens das chaves do .env. Troque para "127.0.0.1:8080:8080" para voltar a só local.
     ports:
-      - "127.0.0.1:8080:8080"
+      - "80:8080"
     volumes:
       - ./data:/app/data
     logging:
