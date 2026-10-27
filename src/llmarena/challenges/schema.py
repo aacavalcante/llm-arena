@@ -27,6 +27,8 @@ class Challenge(BaseModel):
     tests: list[TestCase] = Field(min_length=3)
     float_tol: float | None = None
     reference: str | None = None
+    level: int = 0  # > 0 quando gerado pelo juiz a partir de um problema do usuário
+    custom: bool = False
 
     @field_validator("id")
     @classmethod

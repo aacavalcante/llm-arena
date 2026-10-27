@@ -28,6 +28,7 @@ class Category(StrEnum):
     FORBIDDEN_IMPORT = "forbidden_import"
     NO_CODE = "no_code"
     API_ERROR = "api_error"
+    ADVANTAGE = "advantage"  # golpe livre de quem tem a vantagem (modo custom)
 
 
 class FighterStatus(StrEnum):
@@ -37,6 +38,7 @@ class FighterStatus(StrEnum):
     STUNNED = "stunned"
     EXHAUSTED = "exhausted"
     KO = "ko"
+    ADVANTAGE = "advantage"
 
 
 @dataclass(frozen=True)

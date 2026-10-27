@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from llmarena.arena.fighter import FighterTask
+from llmarena.arena.source import BankSource, ChallengeSource
 from llmarena.challenges.schema import Challenge, ChallengeBank
 from llmarena.domain.models import (
     Category,
@@ -54,6 +55,7 @@ class RoundRunner:
         rng: random.Random,
         score: dict[Side, int],
         on_golpe: GolpeSink | None = None,
+        source: ChallengeSource | None = None,
     ) -> None:
         self.round_no = round_no
         self.specs = specs
@@ -66,6 +68,8 @@ class RoundRunner:
         self.rng = rng
         self.score = score
         self.on_golpe = on_golpe
+        self.source: ChallengeSource = source if source is not None else BankSource(bank, rng)
+        self.source.new_round()
         self.fighters: dict[Side, FighterState] = {
             s: FighterState(spec=specs[s], hp=settings.hp) for s in Side
         }
@@ -173,8 +177,11 @@ class RoundRunner:
                 active = [s for s in Side if not self.fighters[s].exhausted]
                 if not active:
                     break
-                self.challenge = self.bank.draw(self.used_ids, self.rng)
+                t_wait = loop.time()
+                self.challenge = await self.source.next()
+                self.deadline += loop.time() - t_wait  # espera pelo juiz não desconta do round
                 self.used_ids.add(self.challenge.id)
+                self.on_phase_start()
                 dispatched_at = loop.time()
                 self.bc.publish(
                     ChallengeEvent(
@@ -185,6 +192,8 @@ class RoundRunner:
                             difficulty=self.challenge.difficulty.value,
                             statement=self.challenge.statement,
                             signature=self.challenge.signature,
+                            level=self.challenge.level,
+                            custom=self.challenge.custom,
                         )
                     )
                 )
@@ -214,6 +223,9 @@ class RoundRunner:
             duration_ms=int((loop.time() - started) * 1000),
             fighters=self.fighters,
         )
+
+    def on_phase_start(self) -> None:  # noqa: B027 - ponto de extensão
+        pass
 
     async def _phase(self, tasks: dict[Side, asyncio.Task[None]]) -> str:
         """Roda uma fase (um desafio). Retorna 'hit', 'ko' ou 'exhausted' (ninguém mais pode tentar)."""

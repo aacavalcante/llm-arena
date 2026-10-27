@@ -31,6 +31,12 @@ function emptyMatch(ev) {
     code: { left: "", right: "" },
     last_result: { left: null, right: null },
     winner: null,
+    // Modo "custom" (problema personalizado + vantagem)
+    mode: ev.mode || "bank",
+    problem: ev.problem ?? null,
+    level: 0,
+    advantage: null, // "left" | "right" | null — quem está com a VANTAGEM (golpes livres)
+    judge: null, // último evento do juiz ou null
   };
 }
 
@@ -52,6 +58,11 @@ export function normalizeMatch(m) {
     code: { left: "", right: "", ...(m.code || {}) },
     last_result: { left: null, right: null, ...(m.last_result || {}) },
     winner: m.winner ?? null,
+    mode: m.mode || "bank",
+    problem: m.problem ?? null,
+    level: m.level ?? (m.challenge ? m.challenge.level || 0 : 0),
+    advantage: m.advantage ?? null,
+    judge: m.judge ?? null,
   };
 }
 
@@ -103,6 +114,7 @@ export function applyEvent(state, ev, now = Date.now()) {
       m.code = { left: "", right: "" };
       m.last_result = { left: null, right: null };
       m.fighter_status = { left: "idle", right: "idle" };
+      m.advantage = null;
       state.counterReady = { left: false, right: false };
       state.timer = { remaining_ms: ev.remaining_ms, at: now, active: true };
       state.fx.push({ kind: "round_start", round_no: ev.round_no });
@@ -111,6 +123,12 @@ export function applyEvent(state, ev, now = Date.now()) {
     case "challenge":
       m.challenge = ev.challenge;
       m.code = { left: "", right: "" };
+      m.level = ev.challenge.level || 0;
+      // Novo desafio encerra a vantagem (e o status "advantage" de quem a tinha)
+      m.advantage = null;
+      for (const side of ["left", "right"]) {
+        if (m.fighter_status[side] === "advantage") m.fighter_status[side] = "idle";
+      }
       state.counterReady = { left: false, right: false };
       state.fx.push({ kind: "challenge", seq: ev.challenge.seq });
       break;
@@ -124,6 +142,17 @@ export function applyEvent(state, ev, now = Date.now()) {
     case "fighter_status":
       m.fighter_status[ev.side] = ev.status;
       if (ev.status === "writing") m.code[ev.side] = "";
+      if (ev.status === "advantage") {
+        if (m.advantage !== ev.side) state.fx.push({ kind: "advantage", side: ev.side });
+        m.advantage = ev.side;
+      } else if (m.advantage === ev.side && (ev.status === "idle" || ev.status === "ko" || ev.status === "exhausted")) {
+        m.advantage = null;
+      }
+      break;
+
+    case "judge":
+      m.judge = { type: "judge", status: ev.status, level: ev.level, message: ev.message || "" };
+      state.fx.push({ kind: "judge", status: ev.status, level: ev.level, message: ev.message || "" });
       break;
 
     case "golpe_result": {
@@ -131,6 +160,7 @@ export function applyEvent(state, ev, now = Date.now()) {
       const foe = opponentOf(ev.side);
       if (ev.passed && ev.damage > 0) {
         // Golpe acertou: desafio resolvido, qualquer COUNTER aberto se encerra.
+        // category "advantage" = GOLPE LIVRE (modo custom: adversário errou enquanto este lado tem a vantagem).
         state.counterReady = { left: false, right: false };
         state.fx.push({
           kind: "hit",
@@ -139,12 +169,14 @@ export function applyEvent(state, ev, now = Date.now()) {
           damage: ev.damage,
           difficulty: ev.difficulty,
           counter: !!ev.counter,
+          free: ev.category === "advantage",
           ms: ev.ms,
         });
       } else if (ev.passed && ev.late) {
-        state.fx.push({ kind: "late", side: ev.side });
+        // No modo custom: o adversário também resolveu -> fim da vantagem
+        state.fx.push({ kind: "late", side: ev.side, custom: m.mode === "custom" });
       } else if (ev.passed) {
-        state.fx.push({ kind: "late", side: ev.side }); // válido sem dano: trata como atrasado
+        state.fx.push({ kind: "late", side: ev.side, custom: m.mode === "custom" }); // válido sem dano: trata como atrasado
       } else {
         if (ev.opens_counter) state.counterReady[foe] = true;
         state.fx.push({ kind: "miss", side: ev.side, opens_counter: !!ev.opens_counter, category: ev.category });

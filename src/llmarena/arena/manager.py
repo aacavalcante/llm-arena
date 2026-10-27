@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import secrets
+from collections import OrderedDict
 
+from llmarena.arena.judge import GeneratedProblem, Judge
 from llmarena.arena.match import MatchRunner
 from llmarena.challenges.schema import ChallengeBank
 from llmarena.domain.models import Side
@@ -25,6 +27,10 @@ class UnknownModelError(Exception):
     pass
 
 
+class UnknownProblemError(Exception):
+    pass
+
+
 class MatchManager:
     """Uma partida por vez."""
 
@@ -37,6 +43,7 @@ class MatchManager:
         broadcaster: Broadcaster,
         sandbox: Sandbox,
         db: Db | None,
+        judge: Judge | None = None,
     ) -> None:
         self.registry = registry
         self.bank = bank
@@ -44,6 +51,8 @@ class MatchManager:
         self.bc = broadcaster
         self.sandbox = sandbox
         self.db = db
+        self.judge = judge
+        self.problems: OrderedDict[str, GeneratedProblem] = OrderedDict()
         self._task: asyncio.Task[None] | None = None
 
     @property
@@ -54,9 +63,23 @@ class MatchManager:
     def view(self) -> MatchView | None:
         return self.bc.view
 
-    def start(self, left: tuple[str, str], right: tuple[str, str]) -> str:
+    async def generate_problem(self, statement: str) -> GeneratedProblem:
+        if self.judge is None:
+            raise RuntimeError("juiz indisponível")
+        problem = await self.judge.generate_problem(statement)
+        self.problems[problem.problem_id] = problem
+        while len(self.problems) > 50:
+            self.problems.popitem(last=False)
+        return problem
+
+    def start(self, left: tuple[str, str], right: tuple[str, str], problem_id: str | None = None) -> str:
         if self.running:
             raise MatchRunningError("já existe uma partida em andamento")
+        problem = None
+        if problem_id is not None:
+            problem = self.problems.get(problem_id)
+            if problem is None or self.judge is None:
+                raise UnknownProblemError("problema não encontrado; prepare-o de novo com o juiz")
         try:
             specs = {
                 Side.LEFT: self.registry.catalog.spec(*left),
@@ -77,6 +100,8 @@ class MatchManager:
             broadcaster=self.bc,
             sandbox=self.sandbox,
             db=self.db,
+            problem=problem,
+            judge=self.judge if problem is not None else None,
         )
         self._task = asyncio.create_task(runner.run(), name=f"match-{match_id}")
         log.info("match.started", match_id=match_id, left=specs[Side.LEFT], right=specs[Side.RIGHT])

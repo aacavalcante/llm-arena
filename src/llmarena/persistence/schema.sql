@@ -57,3 +57,11 @@ CREATE VIEW IF NOT EXISTS match_sides AS
            winner, CASE WHEN winner = 'right' THEN 1 ELSE 0 END,
            CASE WHEN winner = 'left' THEN 1 ELSE 0 END, CASE WHEN winner = 'draw' THEN 1 ELSE 0 END
     FROM matches;
+CREATE TABLE IF NOT EXISTS generated_challenges (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    statement_src TEXT NOT NULL,
+    challenge_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);

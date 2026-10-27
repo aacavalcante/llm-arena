@@ -20,7 +20,9 @@ const STATUS_TO_ANIM = {
   stunned: "stunned",
   exhausted: "exhausted",
   ko: "ko",
+  advantage: "idle", // modo custom: quem tem a vantagem fica em guarda com o contorno verde
 };
+const ADVANTAGE_COLOR = "#4fd37a";
 
 // Gerador pseudoaleatório determinístico para o cenário (estrelas, plateia).
 function seeded(seed) {
@@ -110,7 +112,8 @@ export function createArena(canvas, state) {
     const m = state.match;
     for (const side of ["left", "right"]) {
       const f = fighters[side];
-      f.glow = !!state.counterReady[side];
+      const advantage = !!m && m.advantage === side;
+      f.glow = state.counterReady[side] ? true : advantage ? ADVANTAGE_COLOR : false;
       if (!f.isBase()) continue;
       const status = m ? m.fighter_status[side] : "idle";
       let anim = STATUS_TO_ANIM[status] || "idle";
@@ -171,9 +174,10 @@ export function createArena(canvas, state) {
             def.setState("hit");
             shakeUntil = performance.now() + 150;
             lag[fx.defender].holdUntil = performance.now() + LAG_DELAY;
-            const color = fx.counter ? "#ffd23f" : fx.difficulty === "hard" ? "#ff7a3a" : "#ffffff";
+            const color = fx.free ? ADVANTAGE_COLOR : fx.counter ? "#ffd23f" : fx.difficulty === "hard" ? "#ff7a3a" : "#ffffff";
             float(`-${fx.damage}`, fx.defender, color, { size: fx.difficulty === "hard" ? 30 : 24 });
             if (fx.counter) float("COUNTER!", fx.attacker, "#ffd23f", { dy: -20, life: 1600, size: 20 });
+            if (fx.free) float("GOLPE LIVRE", fx.attacker, ADVANTAGE_COLOR, { dy: -20, life: 1600, size: 20 });
           });
           break;
         }
@@ -188,8 +192,21 @@ export function createArena(canvas, state) {
           break;
 
         case "late":
-          float("ATRASADO", fx.side, "#9aa4b5", { size: 18 });
+          if (fx.custom) {
+            // Modo custom: o adversário também resolveu -> fim da vantagem do outro lado
+            float("RESOLVEU", fx.side, "#9aa4b5", { size: 18 });
+            float("FIM DA VANTAGEM", fx.side === "left" ? "right" : "left", "#9aa4b5", { dy: -20, size: 14, life: 1600 });
+          } else {
+            float("ATRASADO", fx.side, "#9aa4b5", { size: 18 });
+          }
           break;
+
+        case "advantage":
+          float("VANTAGEM!", fx.side, ADVANTAGE_COLOR, { dy: -36, size: 20, life: 1600 });
+          break;
+
+        case "judge":
+          break; // o juiz é mostrado no DOM (banner na caixa do desafio), não no canvas
 
         case "round_end": {
           banners = [];
@@ -421,7 +438,8 @@ export function createArena(canvas, state) {
       if (fighters[side].glow) {
         const pulse = 0.6 + 0.4 * Math.sin(now / 150);
         ctx.globalAlpha = pulse;
-        text("COUNTER", x, FLOOR_Y - 112, 14, "#ffd23f");
+        const advantage = !!state.match && state.match.advantage === side && !state.counterReady[side];
+        text(advantage ? "VANTAGEM" : "COUNTER", x, FLOOR_Y - 112, 14, advantage ? ADVANTAGE_COLOR : "#ffd23f");
         ctx.globalAlpha = 1;
       }
     }

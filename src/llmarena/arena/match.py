@@ -5,7 +5,10 @@ import random
 from datetime import UTC, datetime
 from typing import Any
 
+from llmarena.arena.advantage import AdvantageRoundRunner
+from llmarena.arena.judge import GeneratedProblem, Judge
 from llmarena.arena.round import RoundRunner
+from llmarena.arena.source import BankSource, ChallengeSource, CustomSource
 from llmarena.challenges.schema import Challenge, ChallengeBank
 from llmarena.domain.models import FighterSpec, FighterState, GolpeResult, Side
 from llmarena.domain.rules import COUNTER_MULTIPLIER, DAMAGE, match_winner, rounds_needed
@@ -46,6 +49,8 @@ class MatchRunner:
         sandbox: Sandbox,
         db: Db | None = None,
         seed: int | str | None = None,
+        problem: GeneratedProblem | None = None,
+        judge: Judge | None = None,
     ) -> None:
         self.match_id = match_id
         self.specs = specs
@@ -56,6 +61,8 @@ class MatchRunner:
         self.bc = broadcaster
         self.sandbox = sandbox
         self.db = db
+        self.problem = problem
+        self.judge = judge
         self.rng = random.Random(seed if seed is not None else match_id)
         self.score: dict[Side, int] = {Side.LEFT: 0, Side.RIGHT: 0}
         self.stats: dict[Side, dict[str, Any]] = {s: {"hits": 0, "misses": 0, "hit_ms": []} for s in Side}
@@ -67,6 +74,27 @@ class MatchRunner:
             round_seconds=self.settings.round_seconds,
             damage={k.value: v for k, v in DAMAGE.items()},
             counter_multiplier=COUNTER_MULTIPLIER,
+        )
+
+    async def _on_generated(self, challenge: Challenge) -> None:
+        if self.db is not None:
+            await asyncio.to_thread(
+                self.db.record_generated,
+                self.match_id,
+                self.problem.statement_src if self.problem else "",
+                challenge,
+            )
+
+    def _make_source(self) -> ChallengeSource:
+        bank_source = BankSource(self.bank, self.rng)
+        if self.problem is None or self.judge is None:
+            return bank_source
+        return CustomSource(
+            judge=self.judge,
+            problem=self.problem,
+            broadcaster=self.bc,
+            fallback=bank_source,
+            on_generated=self._on_generated,
         )
 
     async def _on_golpe(self, r: GolpeResult, challenge: Challenge, spec: FighterSpec) -> None:
@@ -90,8 +118,16 @@ class MatchRunner:
                 left=FighterSpecView(**vars(self.specs[Side.LEFT])),
                 right=FighterSpecView(**vars(self.specs[Side.RIGHT])),
                 rules=self.rules(),
+                mode="custom" if self.problem is not None else "bank",
+                problem=self.problem.statement_src if self.problem is not None else None,
             )
         )
+        source = self._make_source()
+        runner_cls = AdvantageRoundRunner if self.problem is not None else RoundRunner
+        if self.db is not None and self.problem is not None:
+            await asyncio.to_thread(
+                self.db.record_generated, self.match_id, self.problem.statement_src, self.problem.challenge
+            )
         if self.db is not None:
             await asyncio.to_thread(
                 self.db.start_match, self.match_id, self.specs, self.rules().model_dump_json(), _now()
@@ -101,7 +137,7 @@ class MatchRunner:
             need = rounds_needed(self.settings.rounds)
             for round_no in range(1, self.settings.rounds + 1):
                 self.round_no = round_no
-                runner = RoundRunner(
+                runner = runner_cls(
                     round_no=round_no,
                     specs=self.specs,
                     providers=self.providers,
@@ -113,6 +149,7 @@ class MatchRunner:
                     rng=self.rng,
                     score=self.score,
                     on_golpe=self._on_golpe,
+                    source=source,
                 )
                 outcome = await runner.run()
                 self._accumulate(outcome.fighters)
@@ -157,6 +194,7 @@ class MatchRunner:
             log.exception("match.crashed", match_id=self.match_id)
             self.bc.publish(ErrorEvent(message=f"Erro interno na partida: {e!r}"[:300], fatal=True))
         finally:
+            await source.close()
             if self.db is not None:
                 try:
                     await asyncio.shield(

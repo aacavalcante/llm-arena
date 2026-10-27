@@ -15,6 +15,20 @@ token, o enunciado e o resultado dos testes.
 | Erro de API (429/5xx/timeout) | golpe perdido, sem abrir contra-ataque |
 | Custo | `max_tokens` 1500, até 4 tentativas por desafio, 12 golpes por round por lutador |
 
+## Modo "problema personalizado" (vantagem)
+
+Na tela de setup dá para digitar o seu próprio problema. Um **juiz** (Claude Opus 5.5 por padrão, ou o
+modelo definido em `JUDGE_PROVIDER`/`JUDGE_MODEL`) transforma o texto em um desafio testável: assinatura,
+enunciado, 4 a 6 casos de teste e uma solução de referência que precisa passar no sandbox antes de a luta
+começar. O desafio aparece na tela para conferência e a luta segue a regra da **vantagem**:
+
+- Quem resolve primeiro acerta um golpe normal e ganha a vantagem.
+- Enquanto tem a vantagem, cada tentativa falha do oponente vira um **golpe livre** (mesmo dano).
+- Quando o oponente também resolve, a vantagem acaba e o juiz entrega uma variação **mais difícil**
+  (nível 2, 3, ...). A próxima variação é gerada em segundo plano durante a fase atual; se o juiz falhar,
+  entra um desafio do banco.
+- Erro de API do oponente não dá golpe livre. Não há contra-ataque neste modo.
+
 Desafios ficam em `challenges/bank.yaml` (39 hoje), sorteados sem repetir no round. A solução de referência
 nunca vai para o modelo; `uv run llm-arena verify-challenges` prova que todos os testes são resolvíveis.
 
@@ -73,9 +87,12 @@ iniciar partidas e gastar tokens das suas chaves.
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/models` | provedores e modelos disponíveis |
-| POST | `/api/matches` | `{left:{provider,model}, right:{...}}` → `{match_id}` (409 se já há luta) |
+| POST | `/api/matches` | `{left:{provider,model}, right:{...}, problem_id?}` → `{match_id}` (409 se já há luta) |
 | GET/DELETE | `/api/matches/current` | estado da luta atual / abortar |
 | GET | `/api/matches?limit=20` | últimas partidas |
 | GET | `/api/matches/{id}/golpes` | todos os golpes de uma partida, com o código |
+| GET | `/api/judge` | se há juiz configurado e qual modelo |
+| POST | `/api/problems/generate` | `{statement}` → desafio gerado pelo juiz (`problem_id` para a luta) |
+| GET | `/api/matches/{id}/challenges` | variações geradas pelo juiz numa partida |
 | GET | `/api/leaderboard` | ranking por modelo |
 | WS | `/ws` | eventos ao vivo (`state_snapshot` ao conectar) |

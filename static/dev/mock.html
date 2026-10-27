@@ -8,11 +8,21 @@
 </head>
 <body>
 <!-- Página de desenvolvimento: reaproveita o DOM de /index.html e injeta uma sequência de eventos
-     roteirizada no lugar do WebSocket. Sirva a pasta static com `python3 -m http.server`. -->
+     roteirizada no lugar do WebSocket. Sirva a pasta static com `python3 -m http.server`.
+     Cenários (query string):
+       ?scenario=bank    (padrão)  luta normal do banco, com contra-ataque
+       ?scenario=custom           problema personalizado + modo vantagem (juiz, golpes livres, níveis)
+       &judge=0                   simula juiz indisponível (GET /api/judge -> available:false)
+       &autostart=0               não dispara o roteiro sozinho; chame window.__mock.play() -->
 <script type="module">
   import { boot } from "/js/app.js";
 
-  window.__mock = { phase: "boot", errors: [], events: 0, done: false };
+  const params = new URLSearchParams(location.search);
+  const scenario = params.get("scenario") || "bank";
+  const judgeAvailable = params.get("judge") !== "0";
+  const autostart = params.get("autostart") !== "0";
+
+  window.__mock = { phase: "boot", errors: [], events: 0, done: false, scenario, play: null };
   window.addEventListener("error", (e) => window.__mock.errors.push(String(e.message)));
   window.addEventListener("unhandledrejection", (e) => window.__mock.errors.push(String(e.reason)));
 
@@ -24,6 +34,27 @@
   // fetch falso para /api/*
   const realFetch = window.fetch.bind(window);
   const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const PROBLEM_SRC = "Dada uma lista de transações (cliente, valor), retorne o saldo final por cliente como um dicionário. Valores negativos são débitos.";
+  const generated = (level = 1) => ({
+    problem_id: "p-mock",
+    statement_src: PROBLEM_SRC,
+    title: level > 1 ? `Saldo por cliente (variação ${level})` : "Saldo por cliente",
+    function: "saldo_por_cliente",
+    signature: "def saldo_por_cliente(transacoes: list[tuple[str, float]]) -> dict[str, float]:",
+    statement: level > 1
+      ? "Como antes, mas as transações também podem vir com moeda (cliente, valor, moeda) e a resposta deve ser um dicionário por cliente e moeda: {(cliente, moeda): saldo}."
+      : "Recebe uma lista de tuplas (cliente, valor). Some os valores por cliente, preservando sinais (débitos negativos), e devolva um dicionário {cliente: saldo}. Clientes sem transações não aparecem.",
+    difficulty: level > 1 ? "medium" : "easy",
+    level,
+    tests: [
+      { args: [[["ana", 10], ["bia", 5], ["ana", -3]]], kwargs: {}, expected: { ana: 7, bia: 5 } },
+      { args: [[]], kwargs: {}, expected: {} },
+      { args: [[["carlos", -20]]], kwargs: { arredondar: true }, expected: { carlos: -20 } },
+    ],
+    judge_model: "claude-opus-5-5",
+  });
+  window.__mock.lastMatchBody = null;
   window.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (u.startsWith("/api/models")) {
@@ -32,18 +63,35 @@
         { name: "openrouter", display_name: "OpenRouter", models: [{ id: "deepseek/deepseek-chat", display_name: "DeepSeek Chat" }] },
       ] });
     }
+    if (u.startsWith("/api/judge")) {
+      return json(200, judgeAvailable ? { available: true, provider: "anthropic", model: "claude-opus-5-5" } : { available: false, provider: null, model: null });
+    }
+    if (u.startsWith("/api/problems/generate")) {
+      await sleep(1500); // o juiz demora
+      if (!judgeAvailable) return json(503, { detail: "juiz indisponível" });
+      let body = {};
+      try { body = JSON.parse(opts.body || "{}"); } catch (_) { /* vazio */ }
+      const st = String(body.statement || "");
+      if (st.length < 10 || st.length > 2000) return json(422, { detail: "statement deve ter entre 10 e 2000 caracteres" });
+      if (/falhar/i.test(st)) return json(422, { detail: "não consegui derivar uma função testável desse enunciado" });
+      return json(200, generated(1));
+    }
     if (u.startsWith("/api/matches/current")) return (opts.method === "DELETE") ? new Response(null, { status: 204 }) : json(404, { detail: "no match" });
-    if (u.startsWith("/api/matches")) return json(201, { match_id: "m-mock" });
+    if (u.startsWith("/api/matches")) {
+      try { window.__mock.lastMatchBody = JSON.parse(opts.body || "null"); } catch (_) { /* vazio */ }
+      return json(201, { match_id: "m-mock" });
+    }
     return realFetch(url, opts);
   };
 
   const L = { provider: "anthropic", model: "claude-haiku-5-5", display_name: "Claude Haiku 5.5" };
   const R = { provider: "openrouter", model: "deepseek/deepseek-chat", display_name: "DeepSeek Chat" };
   const rules = { hp: 100, rounds: 3, round_seconds: 90, damage: { easy: 10, medium: 20, hard: 35 }, counter_multiplier: 1.5 };
-  const chal = (seq, difficulty) => ({ type: "challenge", challenge: {
+  const chal = (seq, difficulty, extra = {}) => ({ type: "challenge", challenge: {
     seq, id: `c${seq}`, title: ["Soma de pares", "Anagramas", "Caminho mínimo"][seq % 3], difficulty,
     statement: "Dada uma lista de inteiros, devolva a soma dos elementos pares. A lista pode estar vazia.",
     signature: "def solve(nums: list[int]) -> int:",
+    level: 0, custom: false, ...extra,
   } });
   const golpe = (side, seq, o) => ({ type: "golpe_result", side, seq, attempt: 1, passed: false, category: "ok", detail: "", ms: 1200,
     damage: 0, counter: false, opens_counter: false, late: false, tests_passed: 4, tests_total: 4, difficulty: "easy", ...o });
@@ -55,9 +103,10 @@
     return out;
   };
 
-  const script = [
+  // ------------------------------------------------------------------ cenário 1: banco
+  const scriptBank = [
     [0, { type: "state_snapshot", match: null }],
-    [200, { type: "match_start", match_id: "m-mock", left: L, right: R, rules }],
+    [200, { type: "match_start", match_id: "m-mock", left: L, right: R, rules, mode: "bank", problem: null }],
     [400, { type: "round_start", round_no: 1, hp: { left: 100, right: 100 }, score: { left: 0, right: 0 }, remaining_ms: 90000 }],
     [600, chal(1, "easy")],
     [700, { type: "fighter_status", side: "left", status: "writing" }],
@@ -114,24 +163,133 @@
     [20600, "PHASE:done"],
   ];
 
+  // ------------------------------------------------------------------ cenário 2: problema personalizado + vantagem
+  const cchal = (seq, level, difficulty) => ({ type: "challenge", challenge: {
+    seq, id: `p-mock-l${level}`, title: level > 1 ? `Saldo por cliente (variação ${level})` : "Saldo por cliente", difficulty,
+    statement: level > 1
+      ? "Como antes, mas as transações também podem vir com moeda (cliente, valor, moeda) e a resposta deve ser por cliente e moeda."
+      : "Recebe uma lista de tuplas (cliente, valor). Some os valores por cliente e devolva um dicionário {cliente: saldo}.",
+    signature: "def saldo_por_cliente(transacoes: list[tuple[str, float]]) -> dict[str, float]:",
+    level, custom: true,
+  } });
+  const judge = (status, level, message = "") => ({ type: "judge", status, level, message });
+  const codeCL = "def saldo_por_cliente(transacoes):\n    saldo = {}\n    for cliente, valor in transacoes:\n        saldo[cliente] = saldo.get(cliente, 0) + valor\n    return saldo\n";
+  const codeCR = "from collections import defaultdict\n\ndef saldo_por_cliente(transacoes):\n    s = defaultdict(float)\n    for c, v in transacoes:\n        s[c] += v\n    return s\n";
+  const free = (holder, seq, level) => golpe(holder, seq, { passed: true, category: "advantage", damage: 20, ms: 0, difficulty: level > 1 ? "medium" : "easy", tests_passed: 3, tests_total: 3 });
+
+  const scriptCustom = [
+    [0, { type: "state_snapshot", match: null }],
+    [200, { type: "match_start", match_id: "m-mock", left: L, right: R, rules, mode: "custom", problem: PROBLEM_SRC }],
+    [400, { type: "round_start", round_no: 1, hp: { left: 100, right: 100 }, score: { left: 0, right: 0 }, remaining_ms: 90000 }],
+    [500, judge("ready", 1, "nível 1 preparado antes da luta")],
+    [600, cchal(1, 1, "easy")],
+    [700, { type: "fighter_status", side: "left", status: "writing" }],
+    [750, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("left", 1, codeCL, 800, 30),
+    ...toks("right", 1, codeCR, 900, 60),
+    [2200, { type: "fighter_status", side: "left", status: "testing" }],
+    // esquerda resolve primeiro: golpe normal + VANTAGEM
+    [2800, golpe("left", 1, { passed: true, damage: 10, ms: 2100, tests_passed: 3, tests_total: 3 })],
+    [2850, { type: "hp_update", left: 100, right: 90 }],
+    [2900, { type: "fighter_status", side: "left", status: "advantage" }],
+    [3400, "PHASE:advantage"],
+    // direita erra -> golpe livre da esquerda (1)
+    [3800, { type: "fighter_status", side: "right", status: "testing" }],
+    [4400, golpe("right", 1, { passed: false, category: "wrong_answer", detail: "esperado {'ana': 7}, obtido defaultdict(...)", tests_passed: 1, tests_total: 3 })],
+    [4450, free("left", 1, 1)],
+    [4500, { type: "hp_update", left: 100, right: 70 }],
+    [4550, { type: "fighter_status", side: "right", status: "stunned" }],
+    [5400, "PHASE:freehit"],
+    [5600, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("right", 1, codeCL, 5700, 30),
+    // direita erra de novo -> golpe livre da esquerda (2)
+    [7200, { type: "fighter_status", side: "right", status: "testing" }],
+    [7800, golpe("right", 1, { passed: false, category: "runtime_error", detail: "KeyError: 'bia'", tests_passed: 2, tests_total: 3 })],
+    [7850, free("left", 1, 1)],
+    [7900, { type: "hp_update", left: 100, right: 50 }],
+    [7950, { type: "fighter_status", side: "right", status: "stunned" }],
+    [8600, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("right", 1, codeCL, 8700, 20),
+    // direita finalmente resolve: sem dano, fim da vantagem; juiz gera o nível 2
+    [9900, { type: "fighter_status", side: "right", status: "testing" }],
+    [10400, golpe("right", 1, { passed: true, late: true, damage: 0, ms: 7600, tests_passed: 3, tests_total: 3 })],
+    [10450, { type: "fighter_status", side: "left", status: "idle" }],
+    [10450, { type: "fighter_status", side: "right", status: "idle" }],
+    [10500, judge("generating", 2)],
+    [11200, "PHASE:judging"],
+    [12500, judge("ready", 2)],
+    [12700, cchal(2, 2, "medium")],
+    [12800, { type: "fighter_status", side: "left", status: "writing" }],
+    [12800, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("left", 2, codeCL, 12900, 30),
+    ...toks("right", 2, codeCR, 12900, 25),
+    // nível 2: direita resolve primeiro
+    [14200, { type: "fighter_status", side: "right", status: "testing" }],
+    [14700, golpe("right", 2, { passed: true, damage: 20, difficulty: "medium", ms: 1900, tests_passed: 3, tests_total: 3 })],
+    [14750, { type: "hp_update", left: 80, right: 50 }],
+    [14800, { type: "fighter_status", side: "right", status: "advantage" }],
+    [15200, { type: "fighter_status", side: "left", status: "testing" }],
+    [15700, golpe("left", 2, { passed: false, category: "wrong_answer", difficulty: "medium", tests_passed: 0, tests_total: 3 })],
+    [15750, free("right", 2, 2)],
+    [15800, { type: "hp_update", left: 60, right: 50 }],
+    [15850, { type: "fighter_status", side: "left", status: "stunned" }],
+    [16600, { type: "fighter_status", side: "left", status: "testing" }],
+    [17100, golpe("left", 2, { passed: true, late: true, damage: 0, difficulty: "medium", ms: 4300, tests_passed: 3, tests_total: 3 })],
+    [17150, { type: "fighter_status", side: "left", status: "idle" }],
+    [17150, { type: "fighter_status", side: "right", status: "idle" }],
+    [17200, judge("generating", 3)],
+    [18400, judge("failed", 3, "resposta inválida do juiz")],
+    // juiz falhou: desafio do banco (level 0, custom false) no lugar
+    [18600, chal(3, "hard")],
+    [18700, { type: "fighter_status", side: "left", status: "writing" }],
+    [18700, { type: "fighter_status", side: "right", status: "writing" }],
+    ...toks("left", 3, codeL, 18800, 30),
+    ...toks("right", 3, codeR, 18800, 40),
+    [20000, { type: "fighter_status", side: "left", status: "testing" }],
+    [20500, golpe("left", 3, { passed: true, damage: 35, difficulty: "hard", ms: 1700 })],
+    [20550, { type: "hp_update", left: 60, right: 15 }],
+    [20600, { type: "fighter_status", side: "left", status: "advantage" }],
+    [21200, { type: "fighter_status", side: "right", status: "testing" }],
+    [21700, golpe("right", 3, { passed: false, category: "wrong_answer", difficulty: "hard", tests_passed: 1, tests_total: 4 })],
+    [21750, free("left", 3, 0)],
+    [21800, { type: "hp_update", left: 60, right: 0 }],
+    [21850, { type: "fighter_status", side: "right", status: "ko" }],
+    [21900, { type: "round_end", round_no: 1, reason: "ko", winner: "left", hp: { left: 60, right: 0 }, score: { left: 1, right: 0 } }],
+    [23500, { type: "round_start", round_no: 2, hp: { left: 100, right: 100 }, score: { left: 1, right: 0 }, remaining_ms: 90000 }],
+    [23600, judge("generating", 4)],
+    [24400, judge("ready", 4)],
+    [24500, cchal(4, 4, "hard")],
+    [25300, { type: "timer", remaining_ms: 2000 }],
+    [25500, { type: "round_end", round_no: 2, reason: "ko", winner: "left", hp: { left: 40, right: 0 }, score: { left: 2, right: 0 } }],
+    [25700, { type: "match_end", match_id: "m-mock", winner: "left", score: { left: 2, right: 0 },
+      stats: { left: { hits: 6, misses: 1, avg_hit_ms: 1900 }, right: { hits: 1, misses: 4, avg_hit_ms: 1900 } } }],
+    [27500, "PHASE:final"],
+    [27700, "PHASE:done"],
+  ];
+
+  const script = scenario === "custom" ? scriptCustom : scriptBank;
+
   function fakeConnect(onEvent, onStatus) {
     onStatus("open");
-    const t0 = performance.now();
-    for (const [at, ev] of script) {
-      setTimeout(() => {
-        if (typeof ev === "string") {
-          window.__mock.phase = ev.slice(6);
-          if (ev === "PHASE:done") window.__mock.done = true;
-          return;
-        }
-        try {
-          onEvent(ev);
-          window.__mock.events += 1;
-        } catch (e) {
-          window.__mock.errors.push(`evento ${ev.type}: ${e.message}`);
-        }
-      }, at);
-    }
+    const play = () => {
+      for (const [at, ev] of script) {
+        setTimeout(() => {
+          if (typeof ev === "string") {
+            window.__mock.phase = ev.slice(6);
+            if (ev === "PHASE:done") window.__mock.done = true;
+            return;
+          }
+          try {
+            onEvent(ev);
+            window.__mock.events += 1;
+          } catch (e) {
+            window.__mock.errors.push(`evento ${ev.type}: ${e.message}`);
+          }
+        }, at);
+      }
+    };
+    window.__mock.play = play;
+    if (autostart) play();
     return { close() {} };
   }
 

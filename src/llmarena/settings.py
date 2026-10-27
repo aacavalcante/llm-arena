@@ -42,3 +42,10 @@ class Settings(BaseSettings):
     sandbox_parallel: int = 4
 
     fake_providers: bool = False
+
+    # Juiz do modo "problema personalizado": transforma o texto do usuário em desafio testável.
+    judge_provider: str | None = None  # auto: anthropic, senão openrouter
+    judge_model: str | None = None  # auto: claude-opus-5-5 (anthropic) / google/gemini-2.5-pro (openrouter)
+    judge_max_tokens: int = 4000
+    judge_timeout_s: float = 120.0
+    judge_max_tries: int = 3

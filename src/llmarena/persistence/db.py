@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from datetime import UTC, datetime
@@ -129,6 +130,37 @@ class Db:
                 "UPDATE matches SET winner = ?, score_left = ?, score_right = ?, ended_at = ? WHERE id = ?",
                 (winner, score[Side.LEFT], score[Side.RIGHT], ended_at, match_id),
             )
+
+    def record_generated(self, match_id: str, statement_src: str, challenge: Challenge) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO generated_challenges (id, match_id, level, statement_src, challenge_json, created_at) "
+                "VALUES (?,?,?,?,?,?)",
+                (
+                    challenge.id,
+                    match_id,
+                    challenge.level,
+                    statement_src,
+                    challenge.model_dump_json(),
+                    datetime.now(UTC).isoformat(timespec="seconds"),
+                ),
+            )
+
+    def match_challenges(self, match_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, level, statement_src, challenge_json, created_at FROM generated_challenges "
+                "WHERE match_id = ? ORDER BY level",
+                (match_id,),
+            ).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            c = json.loads(d.pop("challenge_json"))
+            c.pop("reference", None)
+            d["challenge"] = c
+            out.append(d)
+        return out
 
     # ---- leitura -------------------------------------------------------------------------------------
 

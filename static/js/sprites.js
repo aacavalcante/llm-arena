@@ -59,7 +59,7 @@ export function createFighter(side, opts = {}) {
   let state = "idle";
   let frame = 0;
   let t = 0; // tempo no frame atual
-  let glow = false; // contorno amarelo "COUNTER"
+  let glow = false; // contorno pulsante: false | true (amarelo, COUNTER) | cor CSS (ex.: verde, VANTAGEM)
   let clock = 0; // tempo total (para pulsar o glow)
 
   function setState(name, { force = false } = {}) {
@@ -331,8 +331,9 @@ export function createFighter(side, opts = {}) {
     if (glow) {
       const pulse = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(clock / 120));
       ctx.globalAlpha = pulse;
+      const glowColor = typeof glow === "string" ? glow : pal.star;
       for (const [gx, gy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [-2, 2], [2, -2]]) {
-        drawFrame(makePainter(ctx, ox + gx, oy + gy, pal.star), state, f);
+        drawFrame(makePainter(ctx, ox + gx, oy + gy, glowColor), state, f);
       }
       ctx.globalAlpha = 1;
     }
@@ -347,7 +348,7 @@ export function createFighter(side, opts = {}) {
     get state() { return state; },
     get frame() { return frame; },
     get glow() { return glow; },
-    set glow(v) { glow = !!v; },
+    set glow(v) { glow = typeof v === "string" && v ? v : !!v; },
     setState,
     setFrame,
     update,

@@ -39,6 +39,37 @@
           <select id="sel-model-right" name="model-right"></select>
         </label>
       </fieldset>
+      <details class="custom-problem" id="custom-problem">
+        <summary>Problema personalizado <span class="muted">(opcional)</span></summary>
+        <p class="muted small">Escreva um problema com suas palavras. O juiz (um LLM) o transforma em uma função com testes antes da luta.
+          No modo personalizado vale a <strong>vantagem</strong>: quem resolve primeiro ganha golpes livres a cada erro do adversário,
+          e quando o adversário também resolve o juiz gera uma variação mais difícil.</p>
+        <p id="judge-unavailable" class="muted small hidden">Juiz indisponível: configure uma chave de API.</p>
+        <div id="custom-editor">
+          <textarea id="problem-text" rows="5" maxlength="2000"
+            placeholder="Descreva o problema que os modelos devem resolver, ex.: dada uma lista de transações, retorne o saldo final por cliente…"></textarea>
+          <div class="custom-actions">
+            <button type="button" id="prepare-btn" class="btn btn-small">Preparar com o juiz</button>
+            <span id="prepare-status" class="muted small" aria-live="polite"></span>
+          </div>
+          <p id="prepare-error" class="error small" role="alert"></p>
+        </div>
+        <div id="problem-card" class="problem-card hidden">
+          <div class="challenge-head">
+            <span id="pc-title" class="pc-title"></span>
+            <span class="badge" id="pc-diff"></span>
+            <span class="badge" id="pc-level"></span>
+          </div>
+          <code id="pc-signature"></code>
+          <p id="pc-statement"></p>
+          <div class="pc-tests-label">Testes</div>
+          <ul id="pc-tests" class="pc-tests"></ul>
+          <div class="custom-actions">
+            <button type="button" id="change-problem-btn" class="btn btn-small">Trocar problema</button>
+            <span id="pc-judge" class="muted small"></span>
+          </div>
+        </div>
+      </details>
       <div class="setup-actions">
         <button type="submit" id="fight-btn" class="btn btn-big">Lutar</button>
         <p id="setup-error" class="error" role="alert"></p>
@@ -81,9 +112,15 @@
           <div class="challenge-head">
             <span id="challenge-title">Nenhuma luta em andamento</span>
             <span class="badge" id="challenge-diff"></span>
+            <span class="chip chip-custom hidden" id="challenge-mode"></span>
           </div>
+          <div id="judge-banner" class="judge-banner hidden" role="status" aria-live="polite"></div>
           <p id="challenge-statement"></p>
           <code id="challenge-signature"></code>
+          <details id="challenge-problem" class="challenge-problem hidden">
+            <summary>Problema original</summary>
+            <p id="challenge-problem-text"></p>
+          </details>
         </div>
         <div class="results-line">
           <span class="result" id="result-left"></span>

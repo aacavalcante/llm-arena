@@ -28,6 +28,29 @@ class ChallengeView(BaseModel):
     difficulty: Literal["easy", "medium", "hard"]
     statement: str
     signature: str
+    level: int = 0  # > 0 em problemas personalizados: nível da variação gerada pelo juiz
+    custom: bool = False
+
+
+class TestCaseView(BaseModel):
+    args: list[Any]
+    kwargs: dict[str, Any] = Field(default_factory=dict)
+    expected: Any = None
+
+
+class GeneratedProblemView(BaseModel):
+    """Problema do usuário já transformado pelo juiz em desafio testável (sem a solução de referência)."""
+
+    problem_id: str
+    statement_src: str
+    title: str
+    function: str
+    signature: str
+    statement: str
+    difficulty: Literal["easy", "medium", "hard"]
+    level: int
+    tests: list[TestCaseView]
+    judge_model: str
 
 
 class MatchStart(BaseModel):
@@ -36,6 +59,8 @@ class MatchStart(BaseModel):
     left: FighterSpecView
     right: FighterSpecView
     rules: RulesView
+    mode: Literal["bank", "custom"] = "bank"
+    problem: str | None = None  # enunciado original do usuário no modo custom
 
 
 class RoundStart(BaseModel):
@@ -61,7 +86,7 @@ class TokenEvent(BaseModel):
 class FighterStatusEvent(BaseModel):
     type: Literal["fighter_status"] = "fighter_status"
     side: Literal["left", "right"]
-    status: Literal["idle", "writing", "testing", "stunned", "exhausted", "ko"]
+    status: Literal["idle", "writing", "testing", "stunned", "exhausted", "ko", "advantage"]
 
 
 class GolpeResultEvent(BaseModel):
@@ -116,6 +141,15 @@ class TimerEvent(BaseModel):
     remaining_ms: int
 
 
+class JudgeEvent(BaseModel):
+    """Andamento do juiz no modo custom (gerando a próxima variação do problema)."""
+
+    type: Literal["judge"] = "judge"
+    status: Literal["generating", "ready", "failed"]
+    level: int
+    message: str = ""
+
+
 class ErrorEvent(BaseModel):
     type: Literal["error"] = "error"
     message: str
@@ -141,6 +175,11 @@ class MatchView(BaseModel):
         default_factory=lambda: {"left": None, "right": None}
     )
     winner: Literal["left", "right", "draw"] | None = None
+    mode: Literal["bank", "custom"] = "bank"
+    problem: str | None = None
+    level: int = 0
+    advantage: Literal["left", "right"] | None = None  # quem tem o direito de golpear (modo custom)
+    judge: JudgeEvent | None = None
 
 
 class StateSnapshot(BaseModel):
@@ -160,6 +199,7 @@ Event = (
     | MatchEnd
     | TimerEvent
     | ErrorEvent
+    | JudgeEvent
     | StateSnapshot
 )
 
@@ -175,6 +215,8 @@ def apply_event(view: MatchView | None, ev: Any) -> MatchView | None:
             rules=ev.rules,
             hp={"left": ev.rules.hp, "right": ev.rules.hp},
             remaining_ms=int(ev.rules.round_seconds * 1000),
+            mode=ev.mode,
+            problem=ev.problem,
         )
     if view is None:
         return None
@@ -188,9 +230,12 @@ def apply_event(view: MatchView | None, ev: Any) -> MatchView | None:
             view.code = {"left": "", "right": ""}
             view.last_result = {"left": None, "right": None}
             view.fighter_status = {"left": "idle", "right": "idle"}
+            view.advantage = None
         case ChallengeEvent():
             view.challenge = ev.challenge
             view.code = {"left": "", "right": ""}
+            view.level = ev.challenge.level
+            view.advantage = None
         case TokenEvent():
             if view.challenge is None or ev.seq == view.challenge.seq:
                 view.code[ev.side] = (view.code.get(ev.side, "") + ev.text)[-20000:]
@@ -198,6 +243,12 @@ def apply_event(view: MatchView | None, ev: Any) -> MatchView | None:
             view.fighter_status[ev.side] = ev.status
             if ev.status == "writing":
                 view.code[ev.side] = ""
+            if ev.status == "advantage":
+                view.advantage = ev.side
+            elif view.advantage == ev.side and ev.status in ("idle", "ko", "exhausted"):
+                view.advantage = None
+        case JudgeEvent():
+            view.judge = ev
         case GolpeResultEvent():
             view.last_result[ev.side] = ev
         case HpUpdate():

@@ -7,6 +7,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
 from llmarena.api import router
+from llmarena.arena.judge import Judge
 from llmarena.arena.manager import MatchManager
 from llmarena.challenges.loader import load_bank
 from llmarena.logging import configure_logging, get_logger
@@ -17,6 +18,35 @@ from llmarena.settings import Settings
 from llmarena.ws import Broadcaster, coalesce, drain
 
 log = get_logger(__name__)
+
+
+JUDGE_DEFAULTS = {"anthropic": "claude-opus-5-5", "openrouter": "google/gemini-2.5-pro"}
+
+
+def build_judge(settings: Settings, registry: ProviderRegistry, sandbox: SubprocessSandbox) -> Judge | None:
+    """Escolhe o provedor/modelo do juiz: o configurado, senão Anthropic, senão OpenRouter."""
+    available = {p.name for p in registry.available()}
+    provider_name = settings.judge_provider or next(
+        (n for n in ("anthropic", "openrouter") if n in available), None
+    )
+    if provider_name is None or provider_name not in available:
+        return None
+    model = settings.judge_model or JUDGE_DEFAULTS.get(provider_name, "")
+    if not model:
+        return None
+    if provider_name == "anthropic":
+        extra = {"output_config": {"effort": "high"}}
+    else:
+        extra = {"reasoning": {"effort": "medium", "exclude": True}}
+    return Judge(
+        provider=registry.get(provider_name),
+        model=model,
+        sandbox=sandbox,
+        max_tokens=settings.judge_max_tokens,
+        timeout_s=settings.judge_timeout_s,
+        max_tries=settings.judge_max_tries,
+        extra=extra,
+    )
 
 
 def create_app(settings: Settings | None = None, *, db: Db | None | bool = True) -> FastAPI:
@@ -45,6 +75,7 @@ def create_app(settings: Settings | None = None, *, db: Db | None | bool = True)
         app.state.sandbox = sandbox
         app.state.db = database
         app.state.broadcaster = broadcaster
+        judge = build_judge(settings, registry, sandbox)
         app.state.manager = MatchManager(
             registry=registry,
             bank=bank,
@@ -52,13 +83,17 @@ def create_app(settings: Settings | None = None, *, db: Db | None | bool = True)
             broadcaster=broadcaster,
             sandbox=sandbox,
             db=database,
+            judge=judge,
         )
         if not registry.available():
             log.warning(
                 "providers.none", hint="defina ANTHROPIC_API_KEY/OPENROUTER_API_KEY ou FAKE_PROVIDERS=true"
             )
         log.info(
-            "app.ready", providers=[p.name for p in registry.available()], challenges=len(bank.challenges)
+            "app.ready",
+            providers=[p.name for p in registry.available()],
+            challenges=len(bank.challenges),
+            judge=f"{judge.provider.name}/{judge.model}" if judge else None,
         )
         try:
             yield
